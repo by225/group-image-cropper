@@ -244,7 +244,7 @@ export const ImageCropperApp: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cropperRef = useRef<ReactCropperElement>(null);
-  const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const objectUrlsToCleanup = useRef<string[]>([]);
 
   const existingFilenames = useMemo(() => new Set(images.map((img) => img.file.name)), [images]);
