@@ -92,7 +92,7 @@ type ToastMessage = UseToastOptions & {
 };
 
 const TEXT = {
-  TITLE: 'Image Cropper',
+  TITLE: 'Group Image Cropper',
   THEME: {
     LIGHT: 'Light Mode',
     DARK: 'Dark Mode'
