@@ -431,10 +431,7 @@ export const ImageCropperApp: React.FC = () => {
         if (remainingSlots === 0) {
           messages.push(createToastMessage('limit', { count: files.length }));
           setTimeout(() => setIsProcessing(false), TIMING.FADE_OUT);
-          setTimeout(
-            () => messages.forEach((msg) => toast(msg)),
-            TIMING.TOAST_DELAY
-          );
+          setTimeout(() => messages.forEach((msg) => toast(msg)), TIMING.TOAST_DELAY);
           return;
         }
 
@@ -450,7 +447,9 @@ export const ImageCropperApp: React.FC = () => {
           const extension = getFileExtension(f.name);
           const acceptedExtensions = ACCEPTED_TYPES[f.type];
           if (!acceptedExtensions.includes(`.${extension}`)) {
-            messages.push(createToastMessage('mime-mismatch', { filename: f.name, mimeType: f.type }));
+            messages.push(
+              createToastMessage('mime-mismatch', { filename: f.name, mimeType: f.type })
+            );
             return false;
           }
 
@@ -462,49 +461,40 @@ export const ImageCropperApp: React.FC = () => {
           messages.push(createToastMessage('invalid-type', { count: invalidTypeCount }));
           if (imageFiles.length === 0) {
             setTimeout(() => setIsProcessing(false), TIMING.FADE_OUT);
-            setTimeout(
-              () => messages.forEach((msg) => toast(msg)),
-              TIMING.TOAST_DELAY
-            );
+            setTimeout(() => messages.forEach((msg) => toast(msg)), TIMING.TOAST_DELAY);
             return;
           }
         }
 
         // Filter duplicates
-        const nonDuplicateFiles = imageFiles.filter(
-          (file) => !existingFilenames.has(file.name)
-        );
+        const nonDuplicateFiles = imageFiles.filter((file) => !existingFilenames.has(file.name));
         const duplicateCount = imageFiles.length - nonDuplicateFiles.length;
 
         if (duplicateCount > 0) {
           messages.push(createToastMessage('duplicate', { count: duplicateCount }));
           if (nonDuplicateFiles.length === 0) {
             setTimeout(() => setIsProcessing(false), TIMING.FADE_OUT);
-            setTimeout(
-              () => messages.forEach((msg) => toast(msg)),
-              TIMING.TOAST_DELAY
-            );
+            setTimeout(() => messages.forEach((msg) => toast(msg)), TIMING.TOAST_DELAY);
             return;
           }
         }
 
         // Process files: validate images, create object URLs, and update state
         const filesToProcess = nonDuplicateFiles.slice(0, remainingSlots);
-        const ignoredDueToLimit = Math.max(
-          0,
-          nonDuplicateFiles.length - remainingSlots
-        );
+        const ignoredDueToLimit = Math.max(0, nonDuplicateFiles.length - remainingSlots);
         let invalidImageCount = 0;
 
         if (filesToProcess.length === 0) {
           if (ignoredDueToLimit > 0) {
-            messages.push(createToastMessage('limit', { added: filesToProcess.length, ignored: ignoredDueToLimit }));
+            messages.push(
+              createToastMessage('limit', {
+                added: filesToProcess.length,
+                ignored: ignoredDueToLimit
+              })
+            );
           }
           setTimeout(() => setIsProcessing(false), TIMING.FADE_OUT);
-          setTimeout(
-            () => messages.forEach((msg) => toast(msg)),
-            TIMING.TOAST_DELAY
-          );
+          setTimeout(() => messages.forEach((msg) => toast(msg)), TIMING.TOAST_DELAY);
           return;
         }
 
@@ -537,59 +527,60 @@ export const ImageCropperApp: React.FC = () => {
         }
 
         if (ignoredDueToLimit > 0) {
-          messages.push(createToastMessage('limit', { 
-            added: filesToProcess.length - invalidImageCount,
-            ignored: ignoredDueToLimit 
-          }));
+          messages.push(
+            createToastMessage('limit', {
+              added: filesToProcess.length - invalidImageCount,
+              ignored: ignoredDueToLimit
+            })
+          );
         }
 
         setTimeout(() => setIsProcessing(false), TIMING.FADE_OUT);
-        setTimeout(
-          () => messages.forEach((msg) => toast(msg)),
-          TIMING.TOAST_DELAY
-        );
+        setTimeout(() => messages.forEach((msg) => toast(msg)), TIMING.TOAST_DELAY);
       }, TIMING.DEBOUNCE);
     },
     [images, toast, isProcessing, validateImage, existingFilenames, createToastMessage]
   );
 
-  const updateCropSettings = useCallback((data: Cropper.Data) => {
-    const aspectRatio = data.width / data.height;
-    const newCropSettings: CropSettings = {
-      x: Math.round(data.x),
-      y: Math.round(data.y),
-      width: Math.round(data.width),
-      height: Math.round(data.height),
-      aspectRatio
-    };
-    
-    setActiveCropSettings(newCropSettings);
-  
-    if (isPerImageCrop && currentImage) {
-      setImages((prev) =>
-        prev.map((img) =>
-          img.id === currentImage.id
-            ? { ...img, cropSettings: newCropSettings }
-            : img
-        )
-      );
-    } else {
-      setGlobalCropSettings(newCropSettings);
-    }
-  }, [currentImage, isPerImageCrop]);
+  const updateCropSettings = useCallback(
+    (data: Cropper.Data) => {
+      const aspectRatio = data.width / data.height;
+      const newCropSettings: CropSettings = {
+        x: Math.round(data.x),
+        y: Math.round(data.y),
+        width: Math.round(data.width),
+        height: Math.round(data.height),
+        aspectRatio
+      };
 
-  const getAspectRatioFromSelection = useCallback((value: string): number => {
-    switch (value) {
-      case TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.VALUE:
-        return originalDimensions
-          ? originalDimensions.width / originalDimensions.height
-          : 0;
-      case TEXT.MODAL.ASPECT_RATIOS.SQUARE.VALUE:
-        return 1;
-      default:
-        return 0;
-    }
-  }, [originalDimensions]);
+      setActiveCropSettings(newCropSettings);
+
+      if (isPerImageCrop && currentImage) {
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === currentImage.id ? { ...img, cropSettings: newCropSettings } : img
+          )
+        );
+      } else {
+        setGlobalCropSettings(newCropSettings);
+      }
+    },
+    [currentImage, isPerImageCrop]
+  );
+
+  const getAspectRatioFromSelection = useCallback(
+    (value: string): number => {
+      switch (value) {
+        case TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.VALUE:
+          return originalDimensions ? originalDimensions.width / originalDimensions.height : 0;
+        case TEXT.MODAL.ASPECT_RATIOS.SQUARE.VALUE:
+          return 1;
+        default:
+          return 0;
+      }
+    },
+    [originalDimensions]
+  );
 
   const getSelectionFromAspectRatio = (
     ratio: number,
@@ -599,8 +590,7 @@ export const ImageCropperApp: React.FC = () => {
       return TEXT.MODAL.ASPECT_RATIOS.SQUARE.VALUE;
     } else if (
       originalDimensions &&
-      Math.abs(ratio - originalDimensions.width / originalDimensions.height) <
-        0.0001
+      Math.abs(ratio - originalDimensions.width / originalDimensions.height) < 0.0001
     ) {
       return TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.VALUE;
     }
@@ -608,9 +598,7 @@ export const ImageCropperApp: React.FC = () => {
   };
 
   const getFileExtension = (filename: string): string => {
-    return filename
-      .slice(((filename.lastIndexOf('.') - 1) >>> 0) + 2)
-      .toLowerCase();
+    return filename.slice(((filename.lastIndexOf('.') - 1) >>> 0) + 2).toLowerCase();
   };
 
   const formatNumber = (num: number): string => {
@@ -639,7 +627,7 @@ export const ImageCropperApp: React.FC = () => {
   const handlePageClick = useCallback(() => {
     toast.closeAll();
   }, [toast]);
-  
+
   const handleNumericChange = useCallback(
     (key: keyof CropSettings, value: string, isComplete: boolean) => {
       const cropper = cropperRef.current?.cropper;
@@ -725,48 +713,48 @@ export const ImageCropperApp: React.FC = () => {
     [handleNumericChange]
   );
 
-  const handleCropMemoryChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      setIsPerImageCrop(e.target.value === 'per-image');
-    },
-    []
-  );
+  const handleCropMemoryChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setIsPerImageCrop(e.target.value === 'per-image');
+  }, []);
 
   const handleCropEvent = useCallback(
     (e: Cropper.CropEvent) => {
       if (isClosing) return;
       const cropper = cropperRef.current?.cropper;
       if (!cropper) return;
-      
+
       const data = cropper.getData();
       updateCropSettings(data);
     },
     [isClosing, updateCropSettings]
   );
 
-  const inputProps = useCallback((key: keyof CropSettings) => ({
-    size: 'sm' as const,
-    w: '70px',
-    h: '32px',
-    lineHeight: '32px',
-    type: 'number' as const,
-    onChange:
-      key === 'x'
-        ? handleXChange
-        : key === 'y'
-          ? handleYChange
-          : key === 'width'
-            ? handleWidthChange
-            : handleHeightChange,
-    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') {
-        handleNumericChange(key, e.currentTarget.value, true);
+  const inputProps = useCallback(
+    (key: keyof CropSettings) => ({
+      size: 'sm' as const,
+      w: '70px',
+      h: '32px',
+      lineHeight: '32px',
+      type: 'number' as const,
+      onChange:
+        key === 'x'
+          ? handleXChange
+          : key === 'y'
+            ? handleYChange
+            : key === 'width'
+              ? handleWidthChange
+              : handleHeightChange,
+      onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+          handleNumericChange(key, e.currentTarget.value, true);
+        }
+      },
+      onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
+        handleNumericChange(key, e.target.value, true);
       }
-    },
-    onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
-      handleNumericChange(key, e.target.value, true);
-    }
-  }), [handleXChange, handleYChange, handleWidthChange, handleHeightChange, handleNumericChange]);
+    }),
+    [handleXChange, handleYChange, handleWidthChange, handleHeightChange, handleNumericChange]
+  );
 
   // Opens crop modal with settings based on mode:
   // Per-Image: image settings -> default
@@ -828,18 +816,26 @@ export const ImageCropperApp: React.FC = () => {
 
   const handleCropperReady = useCallback(() => {
     if (isClosing) return;
-    
+
     const cropper = cropperRef.current?.cropper;
     if (!cropper) return;
-    
+
     if (initialCropSettings) {
       requestAnimationFrame(() => {
+        const aspectRatio = getAspectRatioFromSelection(selectedAspectRatio);
+        cropper.setAspectRatio(aspectRatio);
         cropper.setData(initialCropSettings);
         const data = cropper.getData();
         updateCropSettings(data);
       });
     }
-  }, [initialCropSettings, isClosing, updateCropSettings]);
+  }, [
+    initialCropSettings,
+    isClosing,
+    updateCropSettings,
+    getAspectRatioFromSelection,
+    selectedAspectRatio
+  ]);
 
   // Handles crop & save operation using modern File System API if available
   const handleCrop = async () => {
@@ -848,16 +844,12 @@ export const ImageCropperApp: React.FC = () => {
       const canvas = cropper.getCroppedCanvas();
       let blob: Blob | null = null;
       try {
-        blob = await new Promise<Blob | null>((resolve) =>
-          canvas.toBlob(resolve)
-        );
+        blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve));
         if (!blob) return;
 
-        const croppedFile = new File(
-          [blob],
-          `cropped-${currentImage.file.name}`,
-          { type: blob.type }
-        );
+        const croppedFile = new File([blob], `cropped-${currentImage.file.name}`, {
+          type: blob.type
+        });
         const data = cropper.getData();
 
         const newCropSettings: CropSettings = {
@@ -1035,9 +1027,7 @@ export const ImageCropperApp: React.FC = () => {
         x: currentData.x,
         y: currentData.y,
         width: currentData.width,
-        height: aspectRatio
-          ? currentData.width / aspectRatio
-          : currentData.height,
+        height: aspectRatio ? currentData.width / aspectRatio : currentData.height,
         aspectRatio
       };
 
@@ -1053,9 +1043,7 @@ export const ImageCropperApp: React.FC = () => {
       if (isPerImageCrop && currentImage) {
         setImages((prev) =>
           prev.map((img) =>
-            img.id === currentImage.id
-              ? { ...img, cropSettings: newCropSettings }
-              : img
+            img.id === currentImage.id ? { ...img, cropSettings: newCropSettings } : img
           )
         );
       } else {
@@ -1104,7 +1092,7 @@ export const ImageCropperApp: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      objectUrlsToCleanup.current.forEach(url => {
+      objectUrlsToCleanup.current.forEach((url) => {
         URL.revokeObjectURL(url);
       });
       objectUrlsToCleanup.current = [];
@@ -1139,13 +1127,7 @@ export const ImageCropperApp: React.FC = () => {
       onClick={handlePageClick}
     >
       <VStack spacing={4} align="stretch" position="relative">
-        <Flex
-          gap={6}
-          flexWrap="wrap"
-          alignItems="center"
-          justifyContent="flex-end"
-          minH="32px"
-        >
+        <Flex gap={6} flexWrap="wrap" alignItems="center" justifyContent="flex-end" minH="32px">
           <Text
             fontSize="xl"
             fontWeight="bold"
@@ -1157,20 +1139,8 @@ export const ImageCropperApp: React.FC = () => {
           >
             {TEXT.TITLE}
           </Text>
-          <FormControl
-            display="flex"
-            alignItems="center"
-            w="auto"
-            minW="max-content"
-            h="32px"
-          >
-            <FormLabel
-              htmlFor="theme-toggle"
-              mb="0"
-              whiteSpace="nowrap"
-              lineHeight="32px"
-              h="32px"
-            >
+          <FormControl display="flex" alignItems="center" w="auto" minW="max-content" h="32px">
+            <FormLabel htmlFor="theme-toggle" mb="0" whiteSpace="nowrap" lineHeight="32px" h="32px">
               {colorMode === 'light' ? TEXT.THEME.LIGHT : TEXT.THEME.DARK}
             </FormLabel>
             <Switch
@@ -1179,20 +1149,8 @@ export const ImageCropperApp: React.FC = () => {
               onChange={toggleColorMode}
             />
           </FormControl>
-          <FormControl
-            display="flex"
-            alignItems="center"
-            w="auto"
-            minW="max-content"
-            h="32px"
-          >
-            <FormLabel
-              htmlFor="crop-memory"
-              mb="0"
-              whiteSpace="nowrap"
-              lineHeight="32px"
-              h="32px"
-            >
+          <FormControl display="flex" alignItems="center" w="auto" minW="max-content" h="32px">
+            <FormLabel htmlFor="crop-memory" mb="0" whiteSpace="nowrap" lineHeight="32px" h="32px">
               {TEXT.CROP_MEMORY.LABEL}
             </FormLabel>
             <Select
@@ -1203,9 +1161,7 @@ export const ImageCropperApp: React.FC = () => {
               onChange={handleCropMemoryChange}
               h="32px"
             >
-              <option value="per-image">
-                {TEXT.CROP_MEMORY.OPTIONS.PER_IMAGE}
-              </option>
+              <option value="per-image">{TEXT.CROP_MEMORY.OPTIONS.PER_IMAGE}</option>
               <option value="global">{TEXT.CROP_MEMORY.OPTIONS.GLOBAL}</option>
             </Select>
           </FormControl>
@@ -1386,11 +1342,7 @@ export const ImageCropperApp: React.FC = () => {
                                   {TEXT.CROP_HISTORY.COLUMNS.WIDTH}
                                 </Text>
                               </GridItem>
-                              <GridItem
-                                p={1}
-                                borderBottom="1px"
-                                borderColor="gray.600"
-                              >
+                              <GridItem p={1} borderBottom="1px" borderColor="gray.600">
                                 <Text fontWeight="medium" textAlign="center">
                                   {TEXT.CROP_HISTORY.COLUMNS.HEIGHT}
                                 </Text>
@@ -1400,11 +1352,7 @@ export const ImageCropperApp: React.FC = () => {
                                   <GridItem
                                     p={1}
                                     borderRight="1px"
-                                    borderBottom={
-                                      i < image.cropHistory.length - 1
-                                        ? '1px'
-                                        : '0'
-                                    }
+                                    borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
                                     borderColor="gray.600"
                                   >
                                     <Text textAlign="right">{crop.x}</Text>
@@ -1412,11 +1360,7 @@ export const ImageCropperApp: React.FC = () => {
                                   <GridItem
                                     p={1}
                                     borderRight="1px"
-                                    borderBottom={
-                                      i < image.cropHistory.length - 1
-                                        ? '1px'
-                                        : '0'
-                                    }
+                                    borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
                                     borderColor="gray.600"
                                   >
                                     <Text textAlign="right">{crop.y}</Text>
@@ -1424,27 +1368,17 @@ export const ImageCropperApp: React.FC = () => {
                                   <GridItem
                                     p={1}
                                     borderRight="1px"
-                                    borderBottom={
-                                      i < image.cropHistory.length - 1
-                                        ? '1px'
-                                        : '0'
-                                    }
+                                    borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
                                     borderColor="gray.600"
                                   >
                                     <Text textAlign="right">{crop.width}</Text>
                                   </GridItem>
                                   <GridItem
                                     p={1}
-                                    borderBottom={
-                                      i < image.cropHistory.length - 1
-                                        ? '1px'
-                                        : '0'
-                                    }
+                                    borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
                                     borderColor="gray.600"
                                   >
-                                    <Text textAlign="right">
-                                      {crop.height}
-                                    </Text>
+                                    <Text textAlign="right">{crop.height}</Text>
                                   </GridItem>
                                 </React.Fragment>
                               ))}
@@ -1496,26 +1430,15 @@ export const ImageCropperApp: React.FC = () => {
       </VStack>
       <Modal isOpen={isOpen} onClose={onClose} size="xl" isCentered>
         <ModalOverlay />
-        <ModalContent
-          maxH="100vh"
-          my={0}
-          display="flex"
-          flexDirection="column"
-        >
-          <ModalBody
-            display="flex"
-            flexDirection="column"
-            gap={3}
-            px={6}
-            py={6}
-          >
+        <ModalContent maxH="100vh" my={0} display="flex" flexDirection="column">
+          <ModalBody display="flex" flexDirection="column" gap={3} px={6} py={6}>
             {currentImage && (
               <>
                 <Cropper
                   src={currentImage.url}
                   style={{ height: 'min(50vh, 400px)', width: '100%' }}
                   initialAspectRatio={activeCropSettings.aspectRatio}
-                  data={initialCropSettings || activeCropSettings}  // Fallback to activeCropSettings if initialCropSettings is null
+                  data={initialCropSettings || activeCropSettings} // Fallback to activeCropSettings if initialCropSettings is null
                   guides={true}
                   crop={handleCropEvent}
                   ready={handleCropperReady}
@@ -1540,12 +1463,7 @@ export const ImageCropperApp: React.FC = () => {
                       flex={{ base: '0 0 auto', md: 'none' }}
                       alignItems="baseline"
                     >
-                      <Text
-                        fontWeight="bold"
-                        fontSize="md"
-                        lineHeight="32px"
-                        mt="-1px"
-                      >
+                      <Text fontWeight="bold" fontSize="md" lineHeight="32px" mt="-1px">
                         {TEXT.MODAL.TITLE}
                       </Text>
                       <FormControl display="flex" alignItems="center" w="auto">
@@ -1571,13 +1489,7 @@ export const ImageCropperApp: React.FC = () => {
                       alignItems="center"
                       justifyContent={{ base: 'center', md: 'flex-start' }}
                     >
-                      <FormLabel
-                        fontSize="sm"
-                        lineHeight="32px"
-                        mb={0}
-                        mr={2}
-                        whiteSpace="nowrap"
-                      >
+                      <FormLabel fontSize="sm" lineHeight="32px" mb={0} mr={2} whiteSpace="nowrap">
                         {TEXT.MODAL.ASPECT_RATIO_LABEL}
                       </FormLabel>
                       <Select
@@ -1590,9 +1502,7 @@ export const ImageCropperApp: React.FC = () => {
                         <option value={TEXT.MODAL.ASPECT_RATIOS.FREE.VALUE}>
                           {TEXT.MODAL.ASPECT_RATIOS.FREE.LABEL}
                         </option>
-                        <option
-                          value={TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.VALUE}
-                        >
+                        <option value={TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.VALUE}>
                           {TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.LABEL}
                         </option>
                         <option value={TEXT.MODAL.ASPECT_RATIOS.SQUARE.VALUE}>
@@ -1607,11 +1517,7 @@ export const ImageCropperApp: React.FC = () => {
                     gap={4}
                     align={{ base: 'center', sm: 'center' }}
                   >
-                    <HStack
-                      spacing={4}
-                      flex="1"
-                      justify={{ base: 'center', sm: 'flex-start' }}
-                    >
+                    <HStack spacing={4} flex="1" justify={{ base: 'center', sm: 'flex-start' }}>
                       <FormControl display="flex" alignItems="center" w="auto">
                         <FormLabel
                           fontSize="sm"
@@ -1655,11 +1561,7 @@ export const ImageCropperApp: React.FC = () => {
                         />
                       </FormControl>
                     </HStack>
-                    <HStack
-                      spacing={4}
-                      flex="1"
-                      justify={{ base: 'center', sm: 'flex-start' }}
-                    >
+                    <HStack spacing={4} flex="1" justify={{ base: 'center', sm: 'flex-start' }}>
                       <FormControl display="flex" alignItems="center" w="auto">
                         <FormLabel
                           fontSize="sm"
@@ -1704,12 +1606,7 @@ export const ImageCropperApp: React.FC = () => {
                       </FormControl>
                     </HStack>
                   </Flex>
-                  <Grid
-                    w="full"
-                    mt={3}
-                    templateColumns="1.5fr 3fr"
-                    alignItems="center"
-                  >
+                  <Grid w="full" mt={3} templateColumns="1.5fr 3fr" alignItems="center">
                     <GridItem>
                       <Checkbox
                         size="sm"
@@ -1724,11 +1621,7 @@ export const ImageCropperApp: React.FC = () => {
                         <Button size="sm" onClick={handleCancel}>
                           {TEXT.BUTTONS.CANCEL}
                         </Button>
-                        <Button
-                          size="sm"
-                          colorScheme="blue"
-                          onClick={handleCrop}
-                        >
+                        <Button size="sm" colorScheme="blue" onClick={handleCrop}>
                           {TEXT.BUTTONS.CROP_DOWNLOAD}
                         </Button>
                       </HStack>
