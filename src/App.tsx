@@ -1,16 +1,21 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'react';
 // prettier-ignore
 import {
   ChakraProvider, Box, Button, Flex, Grid, GridItem, Image, Modal, ModalOverlay,
   ModalContent, ModalBody, Text, IconButton, useDisclosure, Select, Input,
   VStack, HStack, useToast, extendTheme, ColorModeScript, Switch, FormControl,
   FormLabel, useColorMode, Popover, PopoverTrigger, PopoverContent, PopoverBody,
-  PopoverArrow, Spinner, Checkbox, UseToastOptions
+  PopoverArrow, Spinner, Checkbox, UseToastOptions, BoxProps, TextProps
 } from '@chakra-ui/react';
 import { DeleteIcon, InfoIcon } from '@chakra-ui/icons';
 import Cropper, { ReactCropperElement } from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
 import './cropper-custom.css';
+
+const COLORS = {
+  DARK_TEXT: '#1A202C',
+  WARNING_BG: '#E5C16D'
+} as const;
 
 const theme = extendTheme({
   config: {
@@ -22,17 +27,17 @@ const theme = extendTheme({
       variants: {
         solid: {
           container: {
-            color: '#1A202C',
-            bg: '#E5C16D',
+            color: COLORS.DARK_TEXT,
+            bg: COLORS.WARNING_BG,
             _light: {
-              bg: '#E5C16D'
+              bg: COLORS.WARNING_BG
             },
             _dark: {
-              bg: '#E5C16D'
+              bg: COLORS.WARNING_BG
             }
           },
           icon: {
-            color: '#1A202C'
+            color: COLORS.DARK_TEXT
           }
         }
       }
@@ -45,51 +50,6 @@ const theme = extendTheme({
     }
   }
 });
-
-interface CropSettings {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  aspectRatio: number;
-}
-
-// url and objectUrl both point to the same resource initially
-// url is preserved for history while objectUrl is used for cleanup
-interface ImageData {
-  id: string;
-  file: File;
-  url: string;
-  objectUrl: string;
-  cropped: boolean;
-  cropHistory: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }[];
-  cropSettings?: CropSettings;
-}
-
-// Type definition for the modern File System Access API
-type ShowSaveFilePicker = (options: {
-  suggestedName?: string;
-  types?: Array<{
-    description: string;
-    accept: Record<string, string[]>;
-  }>;
-}) => Promise<{
-  createWritable: () => Promise<{
-    write: (blob: Blob) => Promise<void>;
-    close: () => Promise<void>;
-  }>;
-}>;
-
-type ToastMessage = UseToastOptions & {
-  status: 'warning' | 'error' | 'success' | 'info';
-  title: string;
-  description: string;
-};
 
 const TEXT = {
   TITLE: 'Group Image Cropper',
@@ -124,7 +84,6 @@ const TEXT = {
     CROP_DOWNLOAD: 'Crop & Download'
   },
   MODAL: {
-    TITLE: 'Crop Image',
     ORIGINAL_LABEL: 'Original:',
     ASPECT_RATIO_LABEL: 'Aspect Ratio:',
     ASPECT_RATIOS: {
@@ -148,20 +107,22 @@ const TEXT = {
       TITLE: 'Images ignored',
       DESC: {
         AT_LIMIT: (count: number) =>
-          `${count} ${count === 1 ? 'image' : 'images'} ignored because of limit`,
+          `${count} ${pluralize('image', count)} ignored because of limit`,
         PARTIAL: (added: number, ignored: number) =>
-          `${added === 1 ? 'First image' : `First ${added} images`} added, ${ignored} ${ignored === 1 ? 'image was' : 'images were'} ignored due to limit.`
+          `${pluralize('First image', `First ${added} images`, added)} added, ` +
+          `${ignored} ${pluralize('image was', 'images were', ignored)} ignored due to limit.`
       }
     },
     DUPLICATES: {
       TITLE: 'Duplicates detected',
-      DESC: (count: number) =>
-        `${count} duplicate ${count === 1 ? 'file was' : 'files were'} ignored`
+      DESC: (count: number) => `${count} duplicate ${pluralize('file', count)} ignored`
     },
     INVALID_TYPE: {
       TITLE: 'Invalid files',
-      DESC: (count: number) =>
-        `${count} ${count === 1 ? 'file' : 'files'} ignored (only ${Object.values(ACCEPTED_TYPES).flat().join(', ')} files are accepted)`
+      DESC: (count: number) => {
+        const acceptedTypes = Object.values(ACCEPTED_TYPES).flat().join(', ');
+        return `${count} ${pluralize('file', count)} ignored (only ${acceptedTypes} files are accepted)`;
+      }
     },
     FILE_SIZE: {
       TITLE: 'File too large',
@@ -175,7 +136,7 @@ const TEXT = {
     INVALID_IMAGES: {
       TITLE: 'Invalid images',
       DESC: (count: number) =>
-        `${count} ${count === 1 ? 'image was' : 'images were'} invalid or corrupted`
+        `${count} ${pluralize('image was', 'images were', count)} invalid or corrupted`
     },
     LOAD_ERROR: {
       TITLE: 'Error',
@@ -206,7 +167,223 @@ const CROP_SIZE = {
   MAX: 10000
 };
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+interface CropDimensions {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface CropSettings extends CropDimensions {
+  aspectRatio: number;
+}
+
+// url and objectUrl both point to the same resource initially
+// url is preserved for history while objectUrl is used for cleanup
+interface ImageData {
+  id: string;
+  file: File;
+  url: string;
+  objectUrl: string;
+  cropped: boolean;
+  cropHistory: CropDimensions[];
+  cropSettings?: CropSettings;
+}
+
+// Type definition for the modern File System Access API
+type ShowSaveFilePicker = (options: {
+  suggestedName?: string;
+  types?: Array<{
+    description: string;
+    accept: Record<string, string[]>;
+  }>;
+}) => Promise<{
+  createWritable: () => Promise<{
+    write: (blob: Blob) => Promise<void>;
+    close: () => Promise<void>;
+  }>;
+}>;
+
+type ToastMessage = UseToastOptions & {
+  status: 'warning' | 'error' | 'success' | 'info';
+  title: string;
+  description: string;
+};
+
+const pluralize = (singular: string, plural?: string | number, count: number = 1) => {
+  if (typeof plural === 'number') {
+    count = plural;
+    plural = undefined;
+  }
+  if (count === 1) return singular;
+  return typeof plural === 'string' ? plural : `${singular}s`;
+};
+
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return (...args: any[]) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
+
+// Displays a filename with intelligent truncation
+// Maintains file extension
+// Truncates from the middle
+// Alternates between removing characters from left and right
+// Optionally shows full filename in a popover
+const TruncatedFileName: React.FC<{
+  filename: string;
+  isOpen?: boolean;
+  onToggle?: () => void;
+  showPopover?: boolean;
+  boxProps?: BoxProps;
+  textProps?: TextProps;
+}> = ({
+  filename,
+  isOpen = false,
+  onToggle = () => {},
+  showPopover = true,
+  boxProps = {},
+  textProps = {}
+}) => {
+  const measureRef = useRef<HTMLSpanElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [displayText, setDisplayText] = useState(filename);
+
+  const updateTruncation = useCallback(() => {
+    if (measureRef.current && containerRef.current) {
+      const containerWidth = containerRef.current.offsetWidth;
+
+      const getTextWidth = (text: string) => {
+        measureRef.current!.textContent = text;
+        return measureRef.current!.offsetWidth;
+      };
+
+      let currentText = filename;
+      let currentWidth = getTextWidth(currentText);
+
+      if (currentWidth <= containerWidth) {
+        setDisplayText(currentText);
+        return;
+      }
+
+      const lastDotIndex = currentText.lastIndexOf('.');
+      const extension = lastDotIndex !== -1 ? currentText.slice(lastDotIndex) : '';
+      const nameWithoutExt = lastDotIndex !== -1 ? currentText.slice(0, lastDotIndex) : currentText;
+
+      let leftIndex = Math.floor(nameWithoutExt.length / 2);
+      let rightIndex = Math.ceil(nameWithoutExt.length / 2);
+      let removeFromRight = true;
+
+      let leftPart = nameWithoutExt.slice(0, leftIndex);
+      let rightPart = nameWithoutExt.slice(rightIndex);
+
+      while (getTextWidth(`${leftPart}...${rightPart}${extension}`) > containerWidth) {
+        if (removeFromRight && rightPart.length > 0) {
+          rightPart = rightPart.slice(0, -1);
+        } else if (!removeFromRight && leftPart.length > 0) {
+          leftPart = leftPart.slice(0, -1);
+        } else if (rightPart.length > 0) {
+          rightPart = rightPart.slice(0, -1);
+        } else if (leftPart.length > 0) {
+          leftPart = leftPart.slice(0, -1);
+        } else {
+          if (extension) {
+            setDisplayText(`...${extension}`);
+          } else {
+            setDisplayText('...');
+          }
+          return;
+        }
+
+        removeFromRight = !removeFromRight;
+      }
+
+      if (leftPart || rightPart) {
+        setDisplayText(`${leftPart}...${rightPart}${extension}`);
+      } else {
+        setDisplayText(`...${extension}`);
+      }
+    }
+  }, [filename]);
+
+  useEffect(() => {
+    updateTruncation();
+  }, [filename, updateTruncation]);
+
+  useEffect(() => {
+    const handleResize = debounce(() => {
+      updateTruncation();
+    }, 100);
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [updateTruncation]);
+
+  const isTruncated = displayText !== filename;
+
+  const content = (
+    <Box ref={containerRef} position="relative" w="full" {...boxProps}>
+      <Text
+        color="gray.500"
+        w="full"
+        mb={1}
+        cursor={isTruncated && showPopover ? 'pointer' : 'default'}
+        textAlign="center"
+        noOfLines={1}
+        _focus={{ outline: 'none' }}
+        onClick={isTruncated && showPopover ? onToggle : undefined}
+        {...textProps}
+      >
+        {displayText}
+      </Text>
+      <span
+        ref={measureRef}
+        style={{
+          position: 'absolute',
+          visibility: 'hidden',
+          whiteSpace: 'nowrap',
+          fontSize: textProps.fontSize === 'xs' ? '12px' : '14px'
+        }}
+      >
+        {filename}
+      </span>
+    </Box>
+  );
+
+  if (!showPopover) {
+    return content;
+  }
+
+  return (
+    <Popover
+      placement="bottom"
+      isOpen={isOpen && isTruncated}
+      strategy="fixed"
+      modifiers={[
+        {
+          name: 'preventOverflow',
+          options: {
+            altAxis: true,
+            padding: 8
+          }
+        }
+      ]}
+    >
+      <PopoverTrigger>{content}</PopoverTrigger>
+      <PopoverContent p={2} width="auto">
+        <PopoverBody>
+          <Text {...textProps}>{filename}</Text>
+        </PopoverBody>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 export const ImageCropperApp: React.FC = () => {
   const [images, setImages] = useState<ImageData[]>([]);
@@ -231,6 +408,7 @@ export const ImageCropperApp: React.FC = () => {
   const [saveOnCancel, setSaveOnCancel] = useState(false);
   const [initialCropSettings, setInitialCropSettings] = useState<CropSettings | null>(null);
   const [isClosing, setIsClosing] = useState(false);
+  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
 
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { colorMode, toggleColorMode } = useColorMode();
@@ -1216,229 +1394,250 @@ export const ImageCropperApp: React.FC = () => {
           hidden
         />
         <Grid templateColumns="repeat(auto-fill, minmax(200px, 1fr))" gap={4}>
-          {images.map((image) => (
-            <Box
-              key={image.id}
-              borderWidth="1px"
-              borderRadius="md"
-              p={2}
-              position="relative"
-              display="flex"
-              flexDirection="column"
-              height="200px"
-            >
+          {images
+            .sort((a, b) => a.file.name.localeCompare(b.file.name))
+            .map((image) => (
               <Box
+                key={image.id}
+                borderWidth="1px"
+                borderRadius="md"
+                p={2}
                 position="relative"
-                flex="1"
                 display="flex"
-                alignItems="center"
-                justifyContent="center"
-                overflow="hidden"
-                mb={0}
+                flexDirection="column"
+                height="230px"
               >
-                <Image
-                  src={image.url}
-                  maxH="150px"
-                  maxW="100%"
-                  objectFit="contain"
-                  width="auto"
-                  height="auto"
-                />
-                <Popover
-                  trigger="click"
-                  placement="bottom-start"
-                  closeOnBlur={true}
-                  gutter={4}
-                  strategy="fixed"
+                <Box
+                  position="relative"
+                  flex="1"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  overflow="hidden"
+                  mb={0}
                 >
-                  <PopoverTrigger>
-                    <IconButton
-                      aria-label="Info"
-                      icon={<InfoIcon boxSize={4} />}
-                      bg={image.cropped ? 'green.500' : 'gray.600'}
-                      color="white"
-                      opacity={0.9}
-                      boxShadow="0 0 4px rgba(0,0,0,0.3)"
-                      _hover={{
-                        bg: image.cropped ? 'green.600' : 'gray.700',
-                        opacity: 1
-                      }}
-                      _active={{
-                        bg: image.cropped ? 'green.700' : 'gray.800'
-                      }}
-                      height="28px"
-                      width="28px"
-                      minWidth="28px"
-                      padding={0}
-                      position="absolute"
-                      top={0}
-                      left={0}
-                    />
-                  </PopoverTrigger>
-                  <PopoverContent
+                  <Image
+                    src={image.url}
+                    maxH="150px"
+                    maxW="100%"
+                    objectFit="contain"
                     width="auto"
-                    maxW="300px"
-                    bg="gray.700"
-                    borderColor="gray.600"
-                    _dark={{
-                      bg: 'gray.700',
-                      borderColor: 'gray.600'
-                    }}
-                    py={1}
-                    px={2}
+                    height="auto"
+                  />
+                  <Popover
+                    trigger="click"
+                    placement="bottom-start"
+                    closeOnBlur={true}
+                    gutter={4}
+                    strategy="fixed"
                   >
-                    <PopoverArrow bg="gray.700" />
-                    <PopoverBody p={2}>
-                      <VStack align="start" spacing={1} minH="44px">
-                        <HStack spacing={1} width="100%" justify="center">
-                          <Text fontWeight="bold" fontSize="sm" color="white">
-                            {TEXT.CROP_HISTORY.TITLE}
-                          </Text>
-                          {image.cropHistory.length > 0 && (
-                            <Text fontSize="sm" color="gray.300">
-                              {TEXT.CROP_HISTORY.UNITS}
+                    <PopoverTrigger>
+                      <IconButton
+                        aria-label="Info"
+                        icon={<InfoIcon boxSize={4} />}
+                        bg={image.cropped ? 'green.500' : 'gray.600'}
+                        color="white"
+                        opacity={0.9}
+                        boxShadow="0 0 4px rgba(0,0,0,0.3)"
+                        _hover={{
+                          bg: image.cropped ? 'green.600' : 'gray.700',
+                          opacity: 1
+                        }}
+                        _active={{
+                          bg: image.cropped ? 'green.700' : 'gray.800'
+                        }}
+                        height="28px"
+                        width="28px"
+                        minWidth="28px"
+                        padding={0}
+                        position="absolute"
+                        top={0}
+                        left={0}
+                      />
+                    </PopoverTrigger>
+                    <PopoverContent
+                      width="auto"
+                      maxW="300px"
+                      bg="gray.700"
+                      borderColor="gray.600"
+                      _dark={{
+                        bg: 'gray.700',
+                        borderColor: 'gray.600'
+                      }}
+                      py={1}
+                      px={2}
+                    >
+                      <PopoverArrow bg="gray.700" />
+                      <PopoverBody p={2}>
+                        <VStack align="start" spacing={1} minH="44px">
+                          <HStack spacing={1} width="100%" justify="center">
+                            <Text fontWeight="bold" fontSize="sm" color="white">
+                              {TEXT.CROP_HISTORY.TITLE}
                             </Text>
+                            {image.cropHistory.length > 0 && (
+                              <Text fontSize="sm" color="gray.300">
+                                {TEXT.CROP_HISTORY.UNITS}
+                              </Text>
+                            )}
+                          </HStack>
+                          {image.cropHistory.length === 0 ? (
+                            <Text fontSize="sm" color="gray.300">
+                              {TEXT.CROP_HISTORY.EMPTY}
+                            </Text>
+                          ) : (
+                            <Box>
+                              <Grid
+                                templateColumns="repeat(4, 1fr)"
+                                gap={0}
+                                fontSize="sm"
+                                color="gray.300"
+                              >
+                                <GridItem
+                                  p={1}
+                                  borderBottom="1px"
+                                  borderRight="1px"
+                                  borderColor="gray.600"
+                                >
+                                  <Text fontWeight="medium" textAlign="center">
+                                    {TEXT.CROP_HISTORY.COLUMNS.X}
+                                  </Text>
+                                </GridItem>
+                                <GridItem
+                                  p={1}
+                                  borderBottom="1px"
+                                  borderRight="1px"
+                                  borderColor="gray.600"
+                                >
+                                  <Text fontWeight="medium" textAlign="center">
+                                    {TEXT.CROP_HISTORY.COLUMNS.Y}
+                                  </Text>
+                                </GridItem>
+                                <GridItem
+                                  p={1}
+                                  borderBottom="1px"
+                                  borderRight="1px"
+                                  borderColor="gray.600"
+                                >
+                                  <Text fontWeight="medium" textAlign="center">
+                                    {TEXT.CROP_HISTORY.COLUMNS.WIDTH}
+                                  </Text>
+                                </GridItem>
+                                <GridItem p={1} borderBottom="1px" borderColor="gray.600">
+                                  <Text fontWeight="medium" textAlign="center">
+                                    {TEXT.CROP_HISTORY.COLUMNS.HEIGHT}
+                                  </Text>
+                                </GridItem>
+                                {image.cropHistory.map((crop, i) => (
+                                  <Fragment key={i}>
+                                    <GridItem
+                                      p={1}
+                                      borderRight="1px"
+                                      borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
+                                      borderColor="gray.600"
+                                    >
+                                      <Text textAlign="right">{crop.x}</Text>
+                                    </GridItem>
+                                    <GridItem
+                                      p={1}
+                                      borderRight="1px"
+                                      borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
+                                      borderColor="gray.600"
+                                    >
+                                      <Text textAlign="right">{crop.y}</Text>
+                                    </GridItem>
+                                    <GridItem
+                                      p={1}
+                                      borderRight="1px"
+                                      borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
+                                      borderColor="gray.600"
+                                    >
+                                      <Text textAlign="right">{crop.width}</Text>
+                                    </GridItem>
+                                    <GridItem
+                                      p={1}
+                                      borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
+                                      borderColor="gray.600"
+                                    >
+                                      <Text textAlign="right">{crop.height}</Text>
+                                    </GridItem>
+                                  </Fragment>
+                                ))}
+                              </Grid>
+                            </Box>
                           )}
-                        </HStack>
-                        {image.cropHistory.length === 0 ? (
-                          <Text fontSize="sm" color="gray.300">
-                            {TEXT.CROP_HISTORY.EMPTY}
-                          </Text>
-                        ) : (
-                          <Box>
-                            <Grid
-                              templateColumns="repeat(4, 1fr)"
-                              gap={0}
-                              fontSize="sm"
-                              color="gray.300"
-                            >
-                              <GridItem
-                                p={1}
-                                borderBottom="1px"
-                                borderRight="1px"
-                                borderColor="gray.600"
-                              >
-                                <Text fontWeight="medium" textAlign="center">
-                                  {TEXT.CROP_HISTORY.COLUMNS.X}
-                                </Text>
-                              </GridItem>
-                              <GridItem
-                                p={1}
-                                borderBottom="1px"
-                                borderRight="1px"
-                                borderColor="gray.600"
-                              >
-                                <Text fontWeight="medium" textAlign="center">
-                                  {TEXT.CROP_HISTORY.COLUMNS.Y}
-                                </Text>
-                              </GridItem>
-                              <GridItem
-                                p={1}
-                                borderBottom="1px"
-                                borderRight="1px"
-                                borderColor="gray.600"
-                              >
-                                <Text fontWeight="medium" textAlign="center">
-                                  {TEXT.CROP_HISTORY.COLUMNS.WIDTH}
-                                </Text>
-                              </GridItem>
-                              <GridItem p={1} borderBottom="1px" borderColor="gray.600">
-                                <Text fontWeight="medium" textAlign="center">
-                                  {TEXT.CROP_HISTORY.COLUMNS.HEIGHT}
-                                </Text>
-                              </GridItem>
-                              {image.cropHistory.map((crop, i) => (
-                                <React.Fragment key={i}>
-                                  <GridItem
-                                    p={1}
-                                    borderRight="1px"
-                                    borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
-                                    borderColor="gray.600"
-                                  >
-                                    <Text textAlign="right">{crop.x}</Text>
-                                  </GridItem>
-                                  <GridItem
-                                    p={1}
-                                    borderRight="1px"
-                                    borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
-                                    borderColor="gray.600"
-                                  >
-                                    <Text textAlign="right">{crop.y}</Text>
-                                  </GridItem>
-                                  <GridItem
-                                    p={1}
-                                    borderRight="1px"
-                                    borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
-                                    borderColor="gray.600"
-                                  >
-                                    <Text textAlign="right">{crop.width}</Text>
-                                  </GridItem>
-                                  <GridItem
-                                    p={1}
-                                    borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
-                                    borderColor="gray.600"
-                                  >
-                                    <Text textAlign="right">{crop.height}</Text>
-                                  </GridItem>
-                                </React.Fragment>
-                              ))}
-                            </Grid>
-                          </Box>
-                        )}
-                      </VStack>
-                    </PopoverBody>
-                  </PopoverContent>
-                </Popover>
-                <IconButton
-                  aria-label="Delete"
-                  icon={<DeleteIcon boxSize={3.5} />}
-                  bg="red.500"
-                  color="white"
-                  opacity={0.9}
-                  boxShadow="0 0 4px rgba(0,0,0,0.3)"
-                  _hover={{ bg: 'red.600', opacity: 1 }}
-                  height="28px"
-                  width="28px"
-                  minWidth="28px"
-                  padding={0}
-                  position="absolute"
-                  top={0}
-                  right={0}
-                  onClick={() => handleDelete(image.id)}
+                        </VStack>
+                      </PopoverBody>
+                    </PopoverContent>
+                  </Popover>
+                  <IconButton
+                    aria-label="Delete"
+                    icon={<DeleteIcon boxSize={3.5} />}
+                    bg="red.500"
+                    color="white"
+                    opacity={0.9}
+                    boxShadow="0 0 4px rgba(0,0,0,0.3)"
+                    _hover={{ bg: 'red.600', opacity: 1 }}
+                    height="28px"
+                    width="28px"
+                    minWidth="28px"
+                    padding={0}
+                    position="absolute"
+                    top={0}
+                    right={0}
+                    onClick={() => handleDelete(image.id)}
+                  />
+                </Box>
+                <TruncatedFileName
+                  filename={image.file.name}
+                  isOpen={openPopoverId === image.id}
+                  onToggle={() => setOpenPopoverId(openPopoverId === image.id ? null : image.id)}
+                  boxProps={{ pt: 2, pb: 3 }}
+                  textProps={{
+                    fontSize: 'xs'
+                  }}
                 />
+                <Button
+                  mt={0}
+                  w="full"
+                  height="28px"
+                  minHeight="28px"
+                  maxHeight="28px"
+                  size="none"
+                  padding="0 16px"
+                  onClick={() => openCropModal(image)}
+                  bg={colorMode === 'light' ? '#C9CCD2' : 'gray.600'}
+                  _hover={{ bg: colorMode === 'light' ? '#D4D9E0' : 'gray.500' }}
+                  _active={{
+                    bg: colorMode === 'light' ? '#ABAFB6' : 'gray.700'
+                  }}
+                >
+                  <Text fontSize="md" lineHeight="26px" mt={-1}>
+                    {TEXT.BUTTONS.CROP}
+                  </Text>
+                </Button>
               </Box>
-              <Button
-                mt={2}
-                w="full"
-                height="28px"
-                minHeight="28px"
-                maxHeight="28px"
-                size="none"
-                padding="0 16px"
-                onClick={() => openCropModal(image)}
-                bg={colorMode === 'light' ? '#C9CCD2' : 'gray.600'}
-                _hover={{ bg: colorMode === 'light' ? '#D4D9E0' : 'gray.500' }}
-                _active={{
-                  bg: colorMode === 'light' ? '#ABAFB6' : 'gray.700'
-                }}
-              >
-                {TEXT.BUTTONS.CROP}
-              </Button>
-            </Box>
-          ))}
+            ))}
         </Grid>
       </VStack>
-      <Modal isOpen={isOpen} onClose={onClose} size="xl" isCentered>
+      <Modal isOpen={isOpen} onClose={onClose} size="xl">
         <ModalOverlay />
-        <ModalContent maxH="100vh" my={0} display="flex" flexDirection="column">
-          <ModalBody display="flex" flexDirection="column" gap={3} px={6} py={6}>
+        <ModalContent display="flex" flexDirection="column" overflow="hidden" m="auto">
+          <ModalBody
+            display="flex"
+            flexDirection="column"
+            gap={3}
+            p={6}
+            overflow="visible"
+            flex="1 1 auto"
+            minH={0}
+          >
             {currentImage && (
               <>
                 <Cropper
                   src={currentImage.url}
                   style={{ height: 'min(50vh, 400px)', width: '100%' }}
                   initialAspectRatio={activeCropSettings.aspectRatio}
-                  data={initialCropSettings || activeCropSettings} // Fallback to activeCropSettings if initialCropSettings is null
+                  data={initialCropSettings || activeCropSettings}
                   guides={true}
                   crop={handleCropEvent}
                   ready={handleCropperReady}
@@ -1450,45 +1649,50 @@ export const ImageCropperApp: React.FC = () => {
                   toggleDragModeOnDblclick={false}
                   autoCropArea={1}
                 />
-                <VStack spacing={2} w="full">
+                <VStack spacing={0} w="full">
+                  <Text
+                    fontSize="sm"
+                    color="gray.400"
+                    textAlign="center"
+                    w="full"
+                    noOfLines={1}
+                    title={currentImage?.file.name}
+                    p={0}
+                    m={-1}
+                  >
+                    <TruncatedFileName
+                      filename={currentImage.file.name}
+                      isOpen={openPopoverId === currentImage.id}
+                      onToggle={() =>
+                        setOpenPopoverId(
+                          openPopoverId === currentImage.id ? null : currentImage?.id
+                        )
+                      }
+                      boxProps={{ p: 0, mt: -1 }}
+                      textProps={{
+                        fontSize: 'sm'
+                      }}
+                    />
+                  </Text>
                   <Flex
                     w="full"
                     direction={{ base: 'column', md: 'row' }}
-                    gap={2}
                     align={{ base: 'center', md: 'center' }}
-                    justify={{ base: 'center', md: 'space-between' }}
+                    justify="space-between"
+                    gap={2}
+                    mt={2}
                   >
-                    <HStack
-                      spacing={12}
-                      flex={{ base: '0 0 auto', md: 'none' }}
-                      alignItems="baseline"
-                    >
-                      <Text fontWeight="bold" fontSize="md" lineHeight="32px" mt="-1px">
-                        {TEXT.MODAL.TITLE}
+                    <FormControl display="flex" alignItems="center" w="auto">
+                      <FormLabel fontSize="sm" lineHeight="32px" mb={0} mr={2} whiteSpace="nowrap">
+                        {TEXT.MODAL.ORIGINAL_LABEL}
+                      </FormLabel>
+                      <Text fontSize="sm" lineHeight="32px" whiteSpace="nowrap">
+                        {originalDimensions
+                          ? `${originalDimensions.width} x ${originalDimensions.height}px`
+                          : ''}
                       </Text>
-                      <FormControl display="flex" alignItems="center" w="auto">
-                        <FormLabel
-                          fontSize="sm"
-                          lineHeight="32px"
-                          mb={0}
-                          mr={2}
-                          whiteSpace="nowrap"
-                        >
-                          {TEXT.MODAL.ORIGINAL_LABEL}
-                        </FormLabel>
-                        <Text fontSize="sm" lineHeight="32px">
-                          {originalDimensions
-                            ? `${originalDimensions.width} x ${originalDimensions.height}px`
-                            : ''}
-                        </Text>
-                      </FormControl>
-                    </HStack>
-                    <FormControl
-                      w={{ base: 'auto', md: '200px' }}
-                      display="flex"
-                      alignItems="center"
-                      justifyContent={{ base: 'center', md: 'flex-start' }}
-                    >
+                    </FormControl>
+                    <FormControl display="flex" alignItems="center" w="auto">
                       <FormLabel fontSize="sm" lineHeight="32px" mb={0} mr={2} whiteSpace="nowrap">
                         {TEXT.MODAL.ASPECT_RATIO_LABEL}
                       </FormLabel>
@@ -1513,9 +1717,10 @@ export const ImageCropperApp: React.FC = () => {
                   </Flex>
                   <Flex
                     w="full"
-                    direction={{ base: 'column', sm: 'row' }}
+                    direction={{ base: 'column', md: 'row' }}
+                    align={{ base: 'center', md: 'center' }}
                     gap={4}
-                    align={{ base: 'center', sm: 'center' }}
+                    mt={4}
                   >
                     <HStack spacing={4} flex="1" justify={{ base: 'center', sm: 'flex-start' }}>
                       <FormControl display="flex" alignItems="center" w="auto">
@@ -1606,7 +1811,7 @@ export const ImageCropperApp: React.FC = () => {
                       </FormControl>
                     </HStack>
                   </Flex>
-                  <Grid w="full" mt={3} templateColumns="1.5fr 3fr" alignItems="center">
+                  <Grid w="full" mt={5} templateColumns="1.5fr 3fr" alignItems="center">
                     <GridItem>
                       <Checkbox
                         size="sm"
