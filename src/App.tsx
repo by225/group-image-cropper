@@ -1,3 +1,4 @@
+// App.tsx
 import React, { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'react';
 // prettier-ignore
 import {
@@ -67,6 +68,7 @@ const TEXT = {
   UPLOAD: {
     PROMPT: 'Click here to upload or drop images anywhere (max 10)'
   },
+  REFRESH: 'If images fail to load, please refresh the page.',
   CROP_HISTORY: {
     TITLE: 'Crop History',
     UNITS: '(in pixels)',
@@ -330,7 +332,7 @@ const TruncatedFileName: React.FC<{
   const content = (
     <Box ref={containerRef} position="relative" w="full" {...boxProps}>
       <Text
-        color="gray.500"
+        color="gray.400"
         w="full"
         mb={1}
         cursor={isTruncated && showPopover ? 'pointer' : 'default'}
@@ -1838,6 +1840,14 @@ export const ImageCropperApp: React.FC = () => {
           </ModalBody>
         </ModalContent>
       </Modal>
+      <Text 
+        fontSize="sm" 
+        color="gray.500" 
+        textAlign="center" 
+        mt={6} 
+      >
+        {TEXT.REFRESH}
+      </Text>
     </Box>
   );
 };
