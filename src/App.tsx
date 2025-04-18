@@ -1299,432 +1299,415 @@ export const ImageCropperApp: React.FC = () => {
 
   return (
     <Box
-      p={4}
-      h="100vh"
+      display="flex"
+      flexDirection="column"
+      w="full"
+      minH="100vh"
       overflow="auto"
+      p={4}
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
       onClick={handlePageClick}
     >
-      <VStack spacing={4} align="stretch" position="relative">
-        <Flex gap={6} flexWrap="wrap" alignItems="center" justifyContent="flex-end" minH="32px">
-          <Text
-            fontSize="xl"
-            fontWeight="bold"
-            whiteSpace="nowrap"
-            mr="auto"
-            lineHeight="32px"
-            h="32px"
-            mt="-4px"
-          >
-            {TEXT.TITLE}
-          </Text>
-          <FormControl display="flex" alignItems="center" w="auto" minW="max-content" h="32px">
-            <FormLabel htmlFor="theme-toggle" mb="0" whiteSpace="nowrap" lineHeight="32px" h="32px">
-              {colorMode === 'light' ? TEXT.THEME.LIGHT : TEXT.THEME.DARK}
-            </FormLabel>
-            <Switch
-              id="theme-toggle"
-              isChecked={colorMode === 'light'}
-              onChange={toggleColorMode}
-            />
-          </FormControl>
-          <FormControl display="flex" alignItems="center" w="auto" minW="max-content" h="32px">
-            <FormLabel htmlFor="crop-memory" mb="0" whiteSpace="nowrap" lineHeight="32px" h="32px">
-              {TEXT.CROP_MEMORY.LABEL}
-            </FormLabel>
-            <Select
-              id="crop-memory"
-              size="sm"
-              width="120px"
-              value={isPerImageCrop ? 'per-image' : 'global'}
-              onChange={handleCropMemoryChange}
+      <Box flex="1">
+        <VStack spacing={4} align="stretch" position="relative">
+          <Flex gap={6} flexWrap="wrap" alignItems="center" justifyContent="flex-end" minH="32px">
+            <Text
+              fontSize="xl"
+              fontWeight="bold"
+              whiteSpace="nowrap"
+              mr="auto"
+              lineHeight="32px"
               h="32px"
+              mt="-4px"
             >
-              <option value="per-image">{TEXT.CROP_MEMORY.OPTIONS.PER_IMAGE}</option>
-              <option value="global">{TEXT.CROP_MEMORY.OPTIONS.GLOBAL}</option>
-            </Select>
-          </FormControl>
-        </Flex>
-        <Box
-          border="2px dashed"
-          borderColor="gray.500"
-          px={2}
-          py={4}
-          textAlign="center"
-          cursor="pointer"
-          _hover={{ borderColor: 'gray.400' }}
-          onClick={handleFileInputClick}
-        >
-          <Text>{TEXT.UPLOAD.PROMPT}</Text>
-        </Box>
-        {isProcessing && (
-          <Flex
-            position="fixed"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            zIndex={9999}
-            justify="center"
-            align="center"
-            gap={2}
-            color={colorMode === 'light' ? 'blackAlpha.900' : 'whiteAlpha.900'}
-            bg={colorMode === 'light' ? 'whiteAlpha.500' : 'blackAlpha.500'}
-            transition={`opacity ${TIMING.TRANSITION} ease-in-out`}
-            opacity={isProcessing ? 1 : 0}
+              {TEXT.TITLE}
+            </Text>
+            <FormControl display="flex" alignItems="center" w="auto" minW="max-content" h="32px">
+              <FormLabel
+                htmlFor="theme-toggle"
+                mb="0"
+                whiteSpace="nowrap"
+                lineHeight="32px"
+                h="32px"
+              >
+                {colorMode === 'light' ? TEXT.THEME.LIGHT : TEXT.THEME.DARK}
+              </FormLabel>
+              <Switch
+                id="theme-toggle"
+                isChecked={colorMode === 'light'}
+                onChange={toggleColorMode}
+              />
+            </FormControl>
+            <FormControl display="flex" alignItems="center" w="auto" minW="max-content" h="32px">
+              <FormLabel
+                htmlFor="crop-memory"
+                mb="0"
+                whiteSpace="nowrap"
+                lineHeight="32px"
+                h="32px"
+              >
+                {TEXT.CROP_MEMORY.LABEL}
+              </FormLabel>
+              <Select
+                id="crop-memory"
+                size="sm"
+                width="120px"
+                value={isPerImageCrop ? 'per-image' : 'global'}
+                onChange={handleCropMemoryChange}
+                h="32px"
+              >
+                <option value="per-image">{TEXT.CROP_MEMORY.OPTIONS.PER_IMAGE}</option>
+                <option value="global">{TEXT.CROP_MEMORY.OPTIONS.GLOBAL}</option>
+              </Select>
+            </FormControl>
+          </Flex>
+          <Box
+            border="2px dashed"
+            borderColor="gray.500"
+            px={2}
+            py={4}
+            textAlign="center"
+            cursor="pointer"
+            _hover={{ borderColor: 'gray.400' }}
+            onClick={handleFileInputClick}
           >
+            <Text>{TEXT.UPLOAD.PROMPT}</Text>
+          </Box>
+          {isProcessing && (
             <Flex
-              bg={colorMode === 'light' ? 'whiteAlpha.900' : 'blackAlpha.900'}
-              px={4}
-              py={3}
-              borderRadius="md"
+              position="fixed"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              zIndex={9999}
+              justify="center"
               align="center"
               gap={2}
+              color={colorMode === 'light' ? 'blackAlpha.900' : 'whiteAlpha.900'}
+              bg={colorMode === 'light' ? 'whiteAlpha.500' : 'blackAlpha.500'}
+              transition={`opacity ${TIMING.TRANSITION} ease-in-out`}
+              opacity={isProcessing ? 1 : 0}
             >
-              <Spinner size="md" />
-              <Text fontWeight="bold">{TEXT.OVERLAY.PROCESSING}</Text>
-            </Flex>
-          </Flex>
-        )}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept="image/*"
-          multiple
-          hidden
-        />
-        <Grid templateColumns="repeat(auto-fill, minmax(200px, 1fr))" gap={4}>
-          {images
-            .sort((a, b) => a.file.name.localeCompare(b.file.name))
-            .map((image) => (
-              <Box
-                key={image.id}
-                borderWidth="1px"
+              <Flex
+                bg={colorMode === 'light' ? 'whiteAlpha.900' : 'blackAlpha.900'}
+                px={4}
+                py={3}
                 borderRadius="md"
-                p={2}
-                position="relative"
-                display="flex"
-                flexDirection="column"
-                height="230px"
+                align="center"
+                gap={2}
               >
+                <Spinner size="md" />
+                <Text fontWeight="bold">{TEXT.OVERLAY.PROCESSING}</Text>
+              </Flex>
+            </Flex>
+          )}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
+            multiple
+            hidden
+          />
+          <Grid templateColumns="repeat(auto-fill, minmax(200px, 1fr))" gap={4}>
+            {images
+              .sort((a, b) => a.file.name.localeCompare(b.file.name))
+              .map((image) => (
                 <Box
+                  key={image.id}
+                  borderWidth="1px"
+                  borderRadius="md"
+                  p={2}
                   position="relative"
-                  flex="1"
                   display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  overflow="hidden"
-                  mb={0}
+                  flexDirection="column"
+                  height="230px"
                 >
-                  <Image
-                    src={image.url}
-                    maxH="150px"
-                    maxW="100%"
-                    objectFit="contain"
-                    width="auto"
-                    height="auto"
-                  />
-                  <Popover
-                    trigger="click"
-                    placement="bottom-start"
-                    closeOnBlur={true}
-                    gutter={4}
-                    strategy="fixed"
+                  <Box
+                    position="relative"
+                    flex="1"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    overflow="hidden"
+                    mb={0}
                   >
-                    <PopoverTrigger>
-                      <IconButton
-                        aria-label="Info"
-                        icon={<InfoIcon boxSize={4} />}
-                        bg={image.cropped ? 'green.500' : 'gray.600'}
-                        color="white"
-                        opacity={0.9}
-                        boxShadow="0 0 4px rgba(0,0,0,0.3)"
-                        _hover={{
-                          bg: image.cropped ? 'green.600' : 'gray.700',
-                          opacity: 1
-                        }}
-                        _active={{
-                          bg: image.cropped ? 'green.700' : 'gray.800'
-                        }}
-                        height="28px"
-                        width="28px"
-                        minWidth="28px"
-                        padding={0}
-                        position="absolute"
-                        top={0}
-                        left={0}
-                      />
-                    </PopoverTrigger>
-                    <PopoverContent
+                    <Image
+                      src={image.url}
+                      maxH="150px"
+                      maxW="100%"
+                      objectFit="contain"
                       width="auto"
-                      maxW="300px"
-                      bg="gray.700"
-                      borderColor="gray.600"
-                      _dark={{
-                        bg: 'gray.700',
-                        borderColor: 'gray.600'
-                      }}
-                      py={1}
-                      px={2}
-                    >
-                      <PopoverArrow bg="gray.700" />
-                      <PopoverBody p={2}>
-                        <VStack align="start" spacing={1} minH="44px">
-                          <HStack spacing={1} width="100%" justify="center">
-                            <Text fontWeight="bold" fontSize="sm" color="white">
-                              {TEXT.CROP_HISTORY.TITLE}
-                            </Text>
-                            {image.cropHistory.length > 0 && (
-                              <Text fontSize="sm" color="gray.300">
-                                {TEXT.CROP_HISTORY.UNITS}
-                              </Text>
-                            )}
-                          </HStack>
-                          {image.cropHistory.length === 0 ? (
-                            <Text fontSize="sm" color="gray.300">
-                              {TEXT.CROP_HISTORY.EMPTY}
-                            </Text>
-                          ) : (
-                            <Box>
-                              <Grid
-                                templateColumns="repeat(4, 1fr)"
-                                gap={0}
-                                fontSize="sm"
-                                color="gray.300"
-                              >
-                                <GridItem
-                                  p={1}
-                                  borderBottom="1px"
-                                  borderRight="1px"
-                                  borderColor="gray.600"
-                                >
-                                  <Text fontWeight="medium" textAlign="center">
-                                    {TEXT.CROP_HISTORY.COLUMNS.X}
-                                  </Text>
-                                </GridItem>
-                                <GridItem
-                                  p={1}
-                                  borderBottom="1px"
-                                  borderRight="1px"
-                                  borderColor="gray.600"
-                                >
-                                  <Text fontWeight="medium" textAlign="center">
-                                    {TEXT.CROP_HISTORY.COLUMNS.Y}
-                                  </Text>
-                                </GridItem>
-                                <GridItem
-                                  p={1}
-                                  borderBottom="1px"
-                                  borderRight="1px"
-                                  borderColor="gray.600"
-                                >
-                                  <Text fontWeight="medium" textAlign="center">
-                                    {TEXT.CROP_HISTORY.COLUMNS.WIDTH}
-                                  </Text>
-                                </GridItem>
-                                <GridItem p={1} borderBottom="1px" borderColor="gray.600">
-                                  <Text fontWeight="medium" textAlign="center">
-                                    {TEXT.CROP_HISTORY.COLUMNS.HEIGHT}
-                                  </Text>
-                                </GridItem>
-                                {image.cropHistory.map((crop, i) => (
-                                  <Fragment key={i}>
-                                    <GridItem
-                                      p={1}
-                                      borderRight="1px"
-                                      borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
-                                      borderColor="gray.600"
-                                    >
-                                      <Text textAlign="right">{crop.x}</Text>
-                                    </GridItem>
-                                    <GridItem
-                                      p={1}
-                                      borderRight="1px"
-                                      borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
-                                      borderColor="gray.600"
-                                    >
-                                      <Text textAlign="right">{crop.y}</Text>
-                                    </GridItem>
-                                    <GridItem
-                                      p={1}
-                                      borderRight="1px"
-                                      borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
-                                      borderColor="gray.600"
-                                    >
-                                      <Text textAlign="right">{crop.width}</Text>
-                                    </GridItem>
-                                    <GridItem
-                                      p={1}
-                                      borderBottom={i < image.cropHistory.length - 1 ? '1px' : '0'}
-                                      borderColor="gray.600"
-                                    >
-                                      <Text textAlign="right">{crop.height}</Text>
-                                    </GridItem>
-                                  </Fragment>
-                                ))}
-                              </Grid>
-                            </Box>
-                          )}
-                        </VStack>
-                      </PopoverBody>
-                    </PopoverContent>
-                  </Popover>
-                  <IconButton
-                    aria-label="Delete"
-                    icon={<DeleteIcon boxSize={3.5} />}
-                    bg="red.500"
-                    color="white"
-                    opacity={0.9}
-                    boxShadow="0 0 4px rgba(0,0,0,0.3)"
-                    _hover={{ bg: 'red.600', opacity: 1 }}
-                    height="28px"
-                    width="28px"
-                    minWidth="28px"
-                    padding={0}
-                    position="absolute"
-                    top={0}
-                    right={0}
-                    onClick={() => handleDelete(image.id)}
-                  />
-                </Box>
-                <TruncatedFileName
-                  filename={image.file.name}
-                  isOpen={openPopoverId === image.id}
-                  onToggle={() => setOpenPopoverId(openPopoverId === image.id ? null : image.id)}
-                  boxProps={{ pt: 2, pb: 3 }}
-                  textProps={{
-                    fontSize: 'xs'
-                  }}
-                />
-                <Button
-                  mt={0}
-                  w="full"
-                  height="28px"
-                  minHeight="28px"
-                  maxHeight="28px"
-                  size="none"
-                  padding="0 16px"
-                  onClick={() => openCropModal(image)}
-                  bg={colorMode === 'light' ? '#C9CCD2' : 'gray.600'}
-                  _hover={{ bg: colorMode === 'light' ? '#D4D9E0' : 'gray.500' }}
-                  _active={{
-                    bg: colorMode === 'light' ? '#ABAFB6' : 'gray.700'
-                  }}
-                >
-                  <Text fontSize="md" lineHeight="26px" mt={-1}>
-                    {TEXT.BUTTONS.CROP}
-                  </Text>
-                </Button>
-              </Box>
-            ))}
-        </Grid>
-      </VStack>
-      <Modal isOpen={isOpen} onClose={onClose} size="xl">
-        <ModalOverlay />
-        <ModalContent display="flex" flexDirection="column" overflow="hidden" m="auto">
-          <ModalBody
-            display="flex"
-            flexDirection="column"
-            gap={3}
-            p={6}
-            overflow="visible"
-            flex="1 1 auto"
-            minH={0}
-          >
-            {currentImage && (
-              <>
-                <Cropper
-                  src={currentImage.url}
-                  style={{ height: 'min(50vh, 400px)', width: '100%' }}
-                  initialAspectRatio={activeCropSettings.aspectRatio}
-                  data={initialCropSettings || activeCropSettings}
-                  guides={true}
-                  crop={handleCropEvent}
-                  ready={handleCropperReady}
-                  ref={cropperRef}
-                  viewMode={1}
-                  dragMode="move"
-                  cropBoxMovable={true}
-                  cropBoxResizable={true}
-                  toggleDragModeOnDblclick={false}
-                  autoCropArea={1}
-                />
-                <VStack spacing={0} w="full">
-                  <Text
-                    fontSize="sm"
-                    color="gray.400"
-                    textAlign="center"
-                    w="full"
-                    noOfLines={1}
-                    title={currentImage?.file.name}
-                    p={0}
-                    m={-1}
-                  >
-                    <TruncatedFileName
-                      filename={currentImage.file.name}
-                      isOpen={openPopoverId === currentImage.id}
-                      onToggle={() =>
-                        setOpenPopoverId(
-                          openPopoverId === currentImage.id ? null : currentImage?.id
-                        )
-                      }
-                      boxProps={{ p: 0, mt: -1 }}
-                      textProps={{
-                        fontSize: 'sm'
-                      }}
+                      height="auto"
                     />
-                  </Text>
-                  <Flex
-                    w="full"
-                    direction={{ base: 'column', md: 'row' }}
-                    align={{ base: 'center', md: 'center' }}
-                    justify="space-between"
-                    gap={2}
-                    mt={2}
-                  >
-                    <FormControl display="flex" alignItems="center" w="auto">
-                      <FormLabel fontSize="sm" lineHeight="32px" mb={0} mr={2} whiteSpace="nowrap">
-                        {TEXT.MODAL.ORIGINAL_LABEL}
-                      </FormLabel>
-                      <Text fontSize="sm" lineHeight="32px" whiteSpace="nowrap">
-                        {originalDimensions
-                          ? `${originalDimensions.width} x ${originalDimensions.height}px`
-                          : ''}
-                      </Text>
-                    </FormControl>
-                    <FormControl display="flex" alignItems="center" w="auto">
-                      <FormLabel fontSize="sm" lineHeight="32px" mb={0} mr={2} whiteSpace="nowrap">
-                        {TEXT.MODAL.ASPECT_RATIO_LABEL}
-                      </FormLabel>
-                      <Select
-                        size="sm"
-                        value={selectedAspectRatio}
-                        onChange={handleAspectChange}
-                        h="32px"
-                        w="120px"
+                    <Popover
+                      trigger="click"
+                      placement="bottom-start"
+                      closeOnBlur={true}
+                      gutter={4}
+                      strategy="fixed"
+                    >
+                      <PopoverTrigger>
+                        <IconButton
+                          aria-label="Info"
+                          icon={<InfoIcon boxSize={4} />}
+                          bg={image.cropped ? 'green.500' : 'gray.600'}
+                          color="white"
+                          opacity={0.9}
+                          boxShadow="0 0 4px rgba(0,0,0,0.3)"
+                          _hover={{
+                            bg: image.cropped ? 'green.600' : 'gray.700',
+                            opacity: 1
+                          }}
+                          _active={{
+                            bg: image.cropped ? 'green.700' : 'gray.800'
+                          }}
+                          height="28px"
+                          width="28px"
+                          minWidth="28px"
+                          padding={0}
+                          position="absolute"
+                          top={0}
+                          left={0}
+                        />
+                      </PopoverTrigger>
+                      <PopoverContent
+                        width="auto"
+                        maxW="300px"
+                        bg="gray.700"
+                        borderColor="gray.600"
+                        _dark={{
+                          bg: 'gray.700',
+                          borderColor: 'gray.600'
+                        }}
+                        py={1}
+                        px={2}
                       >
-                        <option value={TEXT.MODAL.ASPECT_RATIOS.FREE.VALUE}>
-                          {TEXT.MODAL.ASPECT_RATIOS.FREE.LABEL}
-                        </option>
-                        <option value={TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.VALUE}>
-                          {TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.LABEL}
-                        </option>
-                        <option value={TEXT.MODAL.ASPECT_RATIOS.SQUARE.VALUE}>
-                          {TEXT.MODAL.ASPECT_RATIOS.SQUARE.LABEL}
-                        </option>
-                      </Select>
-                    </FormControl>
-                  </Flex>
-                  <Flex
+                        <PopoverArrow bg="gray.700" />
+                        <PopoverBody p={2}>
+                          <VStack align="start" spacing={1} minH="44px">
+                            <HStack spacing={1} width="100%" justify="center">
+                              <Text fontWeight="bold" fontSize="sm" color="white">
+                                {TEXT.CROP_HISTORY.TITLE}
+                              </Text>
+                              {image.cropHistory.length > 0 && (
+                                <Text fontSize="sm" color="gray.300">
+                                  {TEXT.CROP_HISTORY.UNITS}
+                                </Text>
+                              )}
+                            </HStack>
+                            {image.cropHistory.length === 0 ? (
+                              <Text fontSize="sm" color="gray.300">
+                                {TEXT.CROP_HISTORY.EMPTY}
+                              </Text>
+                            ) : (
+                              <Box>
+                                <Grid
+                                  templateColumns="repeat(4, 1fr)"
+                                  gap={0}
+                                  fontSize="sm"
+                                  color="gray.300"
+                                >
+                                  <GridItem
+                                    p={1}
+                                    borderBottom="1px"
+                                    borderRight="1px"
+                                    borderColor="gray.600"
+                                  >
+                                    <Text fontWeight="medium" textAlign="center">
+                                      {TEXT.CROP_HISTORY.COLUMNS.X}
+                                    </Text>
+                                  </GridItem>
+                                  <GridItem
+                                    p={1}
+                                    borderBottom="1px"
+                                    borderRight="1px"
+                                    borderColor="gray.600"
+                                  >
+                                    <Text fontWeight="medium" textAlign="center">
+                                      {TEXT.CROP_HISTORY.COLUMNS.Y}
+                                    </Text>
+                                  </GridItem>
+                                  <GridItem
+                                    p={1}
+                                    borderBottom="1px"
+                                    borderRight="1px"
+                                    borderColor="gray.600"
+                                  >
+                                    <Text fontWeight="medium" textAlign="center">
+                                      {TEXT.CROP_HISTORY.COLUMNS.WIDTH}
+                                    </Text>
+                                  </GridItem>
+                                  <GridItem p={1} borderBottom="1px" borderColor="gray.600">
+                                    <Text fontWeight="medium" textAlign="center">
+                                      {TEXT.CROP_HISTORY.COLUMNS.HEIGHT}
+                                    </Text>
+                                  </GridItem>
+                                  {image.cropHistory.map((crop, i) => (
+                                    <Fragment key={i}>
+                                      <GridItem
+                                        p={1}
+                                        borderRight="1px"
+                                        borderBottom={
+                                          i < image.cropHistory.length - 1 ? '1px' : '0'
+                                        }
+                                        borderColor="gray.600"
+                                      >
+                                        <Text textAlign="right">{crop.x}</Text>
+                                      </GridItem>
+                                      <GridItem
+                                        p={1}
+                                        borderRight="1px"
+                                        borderBottom={
+                                          i < image.cropHistory.length - 1 ? '1px' : '0'
+                                        }
+                                        borderColor="gray.600"
+                                      >
+                                        <Text textAlign="right">{crop.y}</Text>
+                                      </GridItem>
+                                      <GridItem
+                                        p={1}
+                                        borderRight="1px"
+                                        borderBottom={
+                                          i < image.cropHistory.length - 1 ? '1px' : '0'
+                                        }
+                                        borderColor="gray.600"
+                                      >
+                                        <Text textAlign="right">{crop.width}</Text>
+                                      </GridItem>
+                                      <GridItem
+                                        p={1}
+                                        borderBottom={
+                                          i < image.cropHistory.length - 1 ? '1px' : '0'
+                                        }
+                                        borderColor="gray.600"
+                                      >
+                                        <Text textAlign="right">{crop.height}</Text>
+                                      </GridItem>
+                                    </Fragment>
+                                  ))}
+                                </Grid>
+                              </Box>
+                            )}
+                          </VStack>
+                        </PopoverBody>
+                      </PopoverContent>
+                    </Popover>
+                    <IconButton
+                      aria-label="Delete"
+                      icon={<DeleteIcon boxSize={3.5} />}
+                      bg="red.500"
+                      color="white"
+                      opacity={0.9}
+                      boxShadow="0 0 4px rgba(0,0,0,0.3)"
+                      _hover={{ bg: 'red.600', opacity: 1 }}
+                      height="28px"
+                      width="28px"
+                      minWidth="28px"
+                      padding={0}
+                      position="absolute"
+                      top={0}
+                      right={0}
+                      onClick={() => handleDelete(image.id)}
+                    />
+                  </Box>
+                  <TruncatedFileName
+                    filename={image.file.name}
+                    isOpen={openPopoverId === image.id}
+                    onToggle={() => setOpenPopoverId(openPopoverId === image.id ? null : image.id)}
+                    boxProps={{ pt: 2, pb: 3 }}
+                    textProps={{
+                      fontSize: 'xs'
+                    }}
+                  />
+                  <Button
+                    mt={0}
                     w="full"
-                    direction={{ base: 'column', md: 'row' }}
-                    align={{ base: 'center', md: 'center' }}
-                    gap={4}
-                    mt={4}
+                    height="28px"
+                    minHeight="28px"
+                    maxHeight="28px"
+                    size="none"
+                    padding="0 16px"
+                    onClick={() => openCropModal(image)}
+                    bg={colorMode === 'light' ? '#C9CCD2' : 'gray.600'}
+                    _hover={{ bg: colorMode === 'light' ? '#D4D9E0' : 'gray.500' }}
+                    _active={{
+                      bg: colorMode === 'light' ? '#ABAFB6' : 'gray.700'
+                    }}
                   >
-                    <HStack spacing={4} flex="1" justify={{ base: 'center', sm: 'flex-start' }}>
+                    <Text fontSize="md" lineHeight="26px" mt={-1}>
+                      {TEXT.BUTTONS.CROP}
+                    </Text>
+                  </Button>
+                </Box>
+              ))}
+          </Grid>
+        </VStack>
+        <Modal isOpen={isOpen} onClose={onClose} size="xl">
+          <ModalOverlay />
+          <ModalContent display="flex" flexDirection="column" overflow="hidden" m="auto">
+            <ModalBody
+              display="flex"
+              flexDirection="column"
+              gap={3}
+              p={6}
+              overflow="visible"
+              flex="1 1 auto"
+              minH={0}
+            >
+              {currentImage && (
+                <>
+                  <Cropper
+                    src={currentImage.url}
+                    style={{ height: 'min(50vh, 400px)', width: '100%' }}
+                    initialAspectRatio={activeCropSettings.aspectRatio}
+                    data={initialCropSettings || activeCropSettings}
+                    guides={true}
+                    crop={handleCropEvent}
+                    ready={handleCropperReady}
+                    ref={cropperRef}
+                    viewMode={1}
+                    dragMode="move"
+                    cropBoxMovable={true}
+                    cropBoxResizable={true}
+                    toggleDragModeOnDblclick={false}
+                    autoCropArea={1}
+                  />
+                  <VStack spacing={0} w="full">
+                    <Text
+                      fontSize="sm"
+                      color="gray.400"
+                      textAlign="center"
+                      w="full"
+                      noOfLines={1}
+                      title={currentImage?.file.name}
+                      p={0}
+                      m={-1}
+                    >
+                      <TruncatedFileName
+                        filename={currentImage.file.name}
+                        isOpen={openPopoverId === currentImage.id}
+                        onToggle={() =>
+                          setOpenPopoverId(
+                            openPopoverId === currentImage.id ? null : currentImage?.id
+                          )
+                        }
+                        boxProps={{ p: 0, mt: -1 }}
+                        textProps={{
+                          fontSize: 'sm'
+                        }}
+                      />
+                    </Text>
+                    <Flex
+                      w="full"
+                      direction={{ base: 'column', md: 'row' }}
+                      align={{ base: 'center', md: 'center' }}
+                      justify="space-between"
+                      gap={2}
+                      mt={2}
+                    >
                       <FormControl display="flex" alignItems="center" w="auto">
                         <FormLabel
                           fontSize="sm"
@@ -1733,18 +1716,13 @@ export const ImageCropperApp: React.FC = () => {
                           mr={2}
                           whiteSpace="nowrap"
                         >
-                          X:
+                          {TEXT.MODAL.ORIGINAL_LABEL}
                         </FormLabel>
-                        <Input
-                          {...inputProps('x')}
-                          value={formatNumber(activeCropSettings.x)}
-                          min={0}
-                          max={
-                            originalDimensions
-                              ? originalDimensions.width - activeCropSettings.width
-                              : CROP_SIZE.MAX - CROP_SIZE.MIN
-                          }
-                        />
+                        <Text fontSize="sm" lineHeight="32px" whiteSpace="nowrap">
+                          {originalDimensions
+                            ? `${originalDimensions.width} x ${originalDimensions.height}px`
+                            : ''}
+                        </Text>
                       </FormControl>
                       <FormControl display="flex" alignItems="center" w="auto">
                         <FormLabel
@@ -1754,98 +1732,152 @@ export const ImageCropperApp: React.FC = () => {
                           mr={2}
                           whiteSpace="nowrap"
                         >
-                          Y:
+                          {TEXT.MODAL.ASPECT_RATIO_LABEL}
                         </FormLabel>
-                        <Input
-                          {...inputProps('y')}
-                          value={formatNumber(activeCropSettings.y)}
-                          min={0}
-                          max={
-                            originalDimensions
-                              ? originalDimensions.height - activeCropSettings.height
-                              : CROP_SIZE.MAX - CROP_SIZE.MIN
-                          }
-                        />
-                      </FormControl>
-                    </HStack>
-                    <HStack spacing={4} flex="1" justify={{ base: 'center', sm: 'flex-start' }}>
-                      <FormControl display="flex" alignItems="center" w="auto">
-                        <FormLabel
-                          fontSize="sm"
-                          lineHeight="32px"
-                          mb={0}
-                          mr={2}
-                          whiteSpace="nowrap"
+                        <Select
+                          size="sm"
+                          value={selectedAspectRatio}
+                          onChange={handleAspectChange}
+                          h="32px"
+                          w="120px"
                         >
-                          Width:
-                        </FormLabel>
-                        <Input
-                          {...inputProps('width')}
-                          value={formatNumber(activeCropSettings.width)}
-                          min={CROP_SIZE.MIN}
-                          max={
-                            originalDimensions
-                              ? originalDimensions.width - activeCropSettings.x
-                              : CROP_SIZE.MAX
-                          }
-                        />
+                          <option value={TEXT.MODAL.ASPECT_RATIOS.FREE.VALUE}>
+                            {TEXT.MODAL.ASPECT_RATIOS.FREE.LABEL}
+                          </option>
+                          <option value={TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.VALUE}>
+                            {TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.LABEL}
+                          </option>
+                          <option value={TEXT.MODAL.ASPECT_RATIOS.SQUARE.VALUE}>
+                            {TEXT.MODAL.ASPECT_RATIOS.SQUARE.LABEL}
+                          </option>
+                        </Select>
                       </FormControl>
-                      <FormControl display="flex" alignItems="center" w="auto">
-                        <FormLabel
-                          fontSize="sm"
-                          lineHeight="32px"
-                          mb={0}
-                          mr={2}
-                          whiteSpace="nowrap"
-                        >
-                          Height:
-                        </FormLabel>
-                        <Input
-                          {...inputProps('height')}
-                          value={formatNumber(activeCropSettings.height)}
-                          min={CROP_SIZE.MIN}
-                          max={
-                            originalDimensions
-                              ? originalDimensions.height - activeCropSettings.y
-                              : CROP_SIZE.MAX
-                          }
-                        />
-                      </FormControl>
-                    </HStack>
-                  </Flex>
-                  <Grid w="full" mt={5} templateColumns="1.5fr 3fr" alignItems="center">
-                    <GridItem>
-                      <Checkbox
-                        size="sm"
-                        isChecked={saveOnCancel}
-                        onChange={(e) => setSaveOnCancel(e.target.checked)}
-                      >
-                        {TEXT.MODAL.SAVE_ON_CANCEL}
-                      </Checkbox>
-                    </GridItem>
-                    <GridItem>
-                      <HStack>
-                        <Button size="sm" onClick={handleCancel}>
-                          {TEXT.BUTTONS.CANCEL}
-                        </Button>
-                        <Button size="sm" colorScheme="blue" onClick={handleCrop}>
-                          {TEXT.BUTTONS.CROP_DOWNLOAD}
-                        </Button>
+                    </Flex>
+                    <Flex
+                      w="full"
+                      direction={{ base: 'column', md: 'row' }}
+                      align={{ base: 'center', md: 'center' }}
+                      gap={4}
+                      mt={4}
+                    >
+                      <HStack spacing={4} flex="1" justify={{ base: 'center', sm: 'flex-start' }}>
+                        <FormControl display="flex" alignItems="center" w="auto">
+                          <FormLabel
+                            fontSize="sm"
+                            lineHeight="32px"
+                            mb={0}
+                            mr={2}
+                            whiteSpace="nowrap"
+                          >
+                            X:
+                          </FormLabel>
+                          <Input
+                            {...inputProps('x')}
+                            value={formatNumber(activeCropSettings.x)}
+                            min={0}
+                            max={
+                              originalDimensions
+                                ? originalDimensions.width - activeCropSettings.width
+                                : CROP_SIZE.MAX - CROP_SIZE.MIN
+                            }
+                          />
+                        </FormControl>
+                        <FormControl display="flex" alignItems="center" w="auto">
+                          <FormLabel
+                            fontSize="sm"
+                            lineHeight="32px"
+                            mb={0}
+                            mr={2}
+                            whiteSpace="nowrap"
+                          >
+                            Y:
+                          </FormLabel>
+                          <Input
+                            {...inputProps('y')}
+                            value={formatNumber(activeCropSettings.y)}
+                            min={0}
+                            max={
+                              originalDimensions
+                                ? originalDimensions.height - activeCropSettings.height
+                                : CROP_SIZE.MAX - CROP_SIZE.MIN
+                            }
+                          />
+                        </FormControl>
                       </HStack>
-                    </GridItem>
-                  </Grid>
-                </VStack>
-              </>
-            )}
-          </ModalBody>
-        </ModalContent>
-      </Modal>
-      <Text 
-        fontSize="sm" 
-        color="gray.500" 
-        textAlign="center" 
-        mt={6} 
-      >
+                      <HStack spacing={4} flex="1" justify={{ base: 'center', sm: 'flex-start' }}>
+                        <FormControl display="flex" alignItems="center" w="auto">
+                          <FormLabel
+                            fontSize="sm"
+                            lineHeight="32px"
+                            mb={0}
+                            mr={2}
+                            whiteSpace="nowrap"
+                          >
+                            Width:
+                          </FormLabel>
+                          <Input
+                            {...inputProps('width')}
+                            value={formatNumber(activeCropSettings.width)}
+                            min={CROP_SIZE.MIN}
+                            max={
+                              originalDimensions
+                                ? originalDimensions.width - activeCropSettings.x
+                                : CROP_SIZE.MAX
+                            }
+                          />
+                        </FormControl>
+                        <FormControl display="flex" alignItems="center" w="auto">
+                          <FormLabel
+                            fontSize="sm"
+                            lineHeight="32px"
+                            mb={0}
+                            mr={2}
+                            whiteSpace="nowrap"
+                          >
+                            Height:
+                          </FormLabel>
+                          <Input
+                            {...inputProps('height')}
+                            value={formatNumber(activeCropSettings.height)}
+                            min={CROP_SIZE.MIN}
+                            max={
+                              originalDimensions
+                                ? originalDimensions.height - activeCropSettings.y
+                                : CROP_SIZE.MAX
+                            }
+                          />
+                        </FormControl>
+                      </HStack>
+                    </Flex>
+                    <Grid w="full" mt={5} templateColumns="1.5fr 3fr" alignItems="center">
+                      <GridItem>
+                        <Checkbox
+                          size="sm"
+                          isChecked={saveOnCancel}
+                          onChange={(e) => setSaveOnCancel(e.target.checked)}
+                        >
+                          {TEXT.MODAL.SAVE_ON_CANCEL}
+                        </Checkbox>
+                      </GridItem>
+                      <GridItem>
+                        <HStack>
+                          <Button size="sm" onClick={handleCancel}>
+                            {TEXT.BUTTONS.CANCEL}
+                          </Button>
+                          <Button size="sm" colorScheme="blue" onClick={handleCrop}>
+                            {TEXT.BUTTONS.CROP_DOWNLOAD}
+                          </Button>
+                        </HStack>
+                      </GridItem>
+                    </Grid>
+                  </VStack>
+                </>
+              )}
+            </ModalBody>
+          </ModalContent>
+        </Modal>
+      </Box>
+      <Text fontSize="sm" color="gray.500" textAlign="center" mt={6}>
         {TEXT.REFRESH}
       </Text>
     </Box>
