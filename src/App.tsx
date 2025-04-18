@@ -1299,10 +1299,10 @@ export const ImageCropperApp: React.FC = () => {
 
   return (
     <Box
+      w="full"
       display="flex"
       flexDirection="column"
-      w="full"
-      minH="100vh"
+      h="100vh"
       overflow="auto"
       p={4}
       onDrop={handleDrop}
@@ -1661,7 +1661,7 @@ export const ImageCropperApp: React.FC = () => {
                 <>
                   <Cropper
                     src={currentImage.url}
-                    style={{ height: 'min(50vh, 400px)', width: '100%' }}
+                    style={{ height: '400px', width: '100%' }}
                     initialAspectRatio={activeCropSettings.aspectRatio}
                     data={initialCropSettings || activeCropSettings}
                     guides={true}
@@ -1672,8 +1672,12 @@ export const ImageCropperApp: React.FC = () => {
                     dragMode="move"
                     cropBoxMovable={true}
                     cropBoxResizable={true}
-                    toggleDragModeOnDblclick={false}
-                    autoCropArea={1}
+                    responsive={true}
+                    restore={true}
+                    checkOrientation={true}
+                    background={true}
+                    center={true}
+                    movable={true}
                   />
                   <VStack spacing={0} w="full">
                     <Text
