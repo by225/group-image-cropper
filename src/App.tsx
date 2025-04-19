@@ -1672,12 +1672,19 @@ export const ImageCropperApp: React.FC = () => {
                     dragMode="move"
                     cropBoxMovable={true}
                     cropBoxResizable={true}
+                    toggleDragModeOnDblclick={false}
                     responsive={true}
                     restore={true}
                     checkOrientation={true}
                     background={true}
+                    modal={true}
+                    highlight={true}
                     center={true}
+                    scalable={true}
+                    zoomable={true}
                     movable={true}
+                    minContainerWidth={200}
+                    minContainerHeight={200}
                   />
                   <VStack spacing={0} w="full">
                     <Text
