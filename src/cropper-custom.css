@@ -1,9 +1,5 @@
 /* cropper-custom.css */
 
-.cropper-container {
-  background-color: rgba(0, 0, 0, 0.8);
-}
-
 /* Corner handles larger */
 .cropper-point.point-ne,
 .cropper-point.point-nw,

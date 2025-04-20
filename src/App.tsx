@@ -13,44 +13,80 @@ import Cropper, { ReactCropperElement } from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
 import './cropper-custom.css';
 
+interface CropDimensions {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface CropSettings extends CropDimensions {
+  aspectRatio: number;
+}
+
+// url and objectUrl both point to the same resource initially
+// url is preserved for history while objectUrl is used for cleanup
+interface ImageData {
+  id: string;
+  file: File;
+  url: string;
+  objectUrl: string;
+  cropped: boolean;
+  cropHistory: CropDimensions[];
+  cropSettings?: CropSettings;
+  canvasData?: Cropper.CanvasData;
+}
+
+// Type definition for the modern File System Access API
+type ShowSaveFilePicker = (options: {
+  suggestedName?: string;
+  types?: Array<{
+    description: string;
+    accept: Record<string, string[]>;
+  }>;
+}) => Promise<{
+  createWritable: () => Promise<{
+    write: (blob: Blob) => Promise<void>;
+    close: () => Promise<void>;
+  }>;
+}>;
+
+type ToastMessage = UseToastOptions & {
+  status: 'warning' | 'error' | 'success' | 'info';
+  title: string;
+  description: string;
+};
+
+const ACCEPTED_TYPES: Record<string, string[]> = {
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+  'image/gif': ['.gif'],
+  'image/webp': ['.webp']
+};
+
+const IMAGE_SIZE = {
+  MIN: 16,
+  MAX: 10000
+};
+
+const CROP_SIZE = {
+  MIN: 1,
+  MAX: 9999
+};
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const TIMING = {
+  DEBOUNCE: 50,
+  FADE_OUT: 200,
+  TOAST_DELAY: 300,
+  TRANSITION: '0.2s'
+};
+
 const COLORS = {
   DARK_TEXT: '#1A202C',
   WARNING_BG: '#E5C16D'
 } as const;
-
-const theme = extendTheme({
-  config: {
-    initialColorMode: 'dark',
-    useSystemColorMode: false
-  },
-  components: {
-    Alert: {
-      variants: {
-        solid: {
-          container: {
-            color: COLORS.DARK_TEXT,
-            bg: COLORS.WARNING_BG,
-            _light: {
-              bg: COLORS.WARNING_BG
-            },
-            _dark: {
-              bg: COLORS.WARNING_BG
-            }
-          },
-          icon: {
-            color: COLORS.DARK_TEXT
-          }
-        }
-      }
-    },
-    Toast: {
-      defaultProps: {
-        variant: 'solid',
-        status: 'warning'
-      }
-    }
-  }
-});
 
 const TEXT = {
   TITLE: 'Group Image Cropper',
@@ -135,6 +171,12 @@ const TEXT = {
       DESC: (filename: string, mimeType: string) =>
         `${filename}: File extension doesn't match its content type (${mimeType})`
     },
+    INVALID_DIMENSIONS: {
+      TITLE: 'Invalid image dimensions',
+      DESC: (count: number) =>
+        `${count} ${pluralize('image is', 'images are', count)} are not between\n` +
+        `${IMAGE_SIZE.MIN}px and ${IMAGE_SIZE.MAX}px in either direction`
+    },
     INVALID_IMAGES: {
       TITLE: 'Invalid images',
       DESC: (count: number) =>
@@ -150,69 +192,39 @@ const TEXT = {
   }
 };
 
-const ACCEPTED_TYPES: Record<string, string[]> = {
-  'image/jpeg': ['.jpg', '.jpeg'],
-  'image/png': ['.png'],
-  'image/gif': ['.gif'],
-  'image/webp': ['.webp']
-};
-
-const TIMING = {
-  DEBOUNCE: 50,
-  FADE_OUT: 200,
-  TOAST_DELAY: 300,
-  TRANSITION: '0.2s'
-};
-
-const CROP_SIZE = {
-  MIN: 10,
-  MAX: 10000
-};
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
-interface CropDimensions {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface CropSettings extends CropDimensions {
-  aspectRatio: number;
-}
-
-// url and objectUrl both point to the same resource initially
-// url is preserved for history while objectUrl is used for cleanup
-interface ImageData {
-  id: string;
-  file: File;
-  url: string;
-  objectUrl: string;
-  cropped: boolean;
-  cropHistory: CropDimensions[];
-  cropSettings?: CropSettings;
-}
-
-// Type definition for the modern File System Access API
-type ShowSaveFilePicker = (options: {
-  suggestedName?: string;
-  types?: Array<{
-    description: string;
-    accept: Record<string, string[]>;
-  }>;
-}) => Promise<{
-  createWritable: () => Promise<{
-    write: (blob: Blob) => Promise<void>;
-    close: () => Promise<void>;
-  }>;
-}>;
-
-type ToastMessage = UseToastOptions & {
-  status: 'warning' | 'error' | 'success' | 'info';
-  title: string;
-  description: string;
-};
+const theme = extendTheme({
+  config: {
+    initialColorMode: 'dark',
+    useSystemColorMode: false
+  },
+  components: {
+    Alert: {
+      variants: {
+        solid: {
+          container: {
+            color: COLORS.DARK_TEXT,
+            bg: COLORS.WARNING_BG,
+            _light: {
+              bg: COLORS.WARNING_BG
+            },
+            _dark: {
+              bg: COLORS.WARNING_BG
+            }
+          },
+          icon: {
+            color: COLORS.DARK_TEXT
+          }
+        }
+      }
+    },
+    Toast: {
+      defaultProps: {
+        variant: 'solid',
+        status: 'warning'
+      }
+    }
+  }
+});
 
 const pluralize = (singular: string, plural?: string | number, count: number = 1) => {
   if (typeof plural === 'number') {
@@ -229,6 +241,15 @@ const debounce = (func: Function, wait: number) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
   };
+};
+
+const getFileExtension = (filename: string): string => {
+  return filename.slice(((filename.lastIndexOf('.') - 1) >>> 0) + 2).toLowerCase();
+};
+
+const formatNumber = (num: number): string => {
+  const rounded = Math.round(num);
+  return rounded === 0 ? '0' : rounded.toString();
 };
 
 // Displays a filename with intelligent truncation
@@ -412,6 +433,11 @@ export const ImageCropperApp: React.FC = () => {
   const [isClosing, setIsClosing] = useState(false);
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cropperRef = useRef<ReactCropperElement>(null);
+  const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const objectUrlsToCleanup = useRef<string[]>([]);
+
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { colorMode, toggleColorMode } = useColorMode();
   const toast = useToast({
@@ -422,20 +448,7 @@ export const ImageCropperApp: React.FC = () => {
     status: 'warning'
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cropperRef = useRef<ReactCropperElement>(null);
-  const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const objectUrlsToCleanup = useRef<string[]>([]);
-
   const existingFilenames = useMemo(() => new Set(images.map((img) => img.file.name)), [images]);
-
-  const addUrlForCleanup = (url: string) => {
-    objectUrlsToCleanup.current.push(url);
-  };
-
-  const removeUrlFromCleanup = (url: string) => {
-    objectUrlsToCleanup.current = objectUrlsToCleanup.current.filter((u) => u !== url);
-  };
 
   const createToastMessage = useCallback(
     (
@@ -445,6 +458,7 @@ export const ImageCropperApp: React.FC = () => {
         | 'invalid-type'
         | 'file-size'
         | 'mime-mismatch'
+        | 'invalid-dimensions'
         | 'invalid-image'
         | 'load-error',
       params?: {
@@ -453,6 +467,8 @@ export const ImageCropperApp: React.FC = () => {
         mimeType?: string;
         added?: number;
         ignored?: number;
+        minSize?: number;
+        maxSize?: number;
       },
       immediate = false
     ): ToastMessage => {
@@ -499,6 +515,11 @@ export const ImageCropperApp: React.FC = () => {
           );
           break;
 
+        case 'invalid-dimensions':
+          message.title = TEXT.TOASTS.INVALID_DIMENSIONS.TITLE;
+          message.description = TEXT.TOASTS.INVALID_DIMENSIONS.DESC(params?.count || 0);
+          break;
+
         case 'invalid-image':
           message.status = 'error';
           message.title = TEXT.TOASTS.INVALID_IMAGES.TITLE;
@@ -521,70 +542,133 @@ export const ImageCropperApp: React.FC = () => {
     [toast]
   );
 
-  const validateImage = useCallback((file: File): Promise<boolean> => {
-    return new Promise((resolve) => {
-      try {
-        const img = new window.Image();
-        const objectUrl = URL.createObjectURL(file);
-        addUrlForCleanup(objectUrl);
-        const timeout = setTimeout(() => {
-          URL.revokeObjectURL(objectUrl);
-          removeUrlFromCleanup(objectUrl);
-          resolve(false);
-        }, 10000);
+  const addUrlForCleanup = (url: string) => {
+    objectUrlsToCleanup.current.push(url);
+  };
 
-        img.onload = () => {
-          clearTimeout(timeout);
-          URL.revokeObjectURL(objectUrl);
-          removeUrlFromCleanup(objectUrl);
-          // Check for valid dimensions
-          if (
-            img.width === 0 ||
-            img.height === 0 ||
-            img.width > CROP_SIZE.MAX ||
-            img.height > CROP_SIZE.MAX ||
-            img.width < CROP_SIZE.MIN ||
-            img.height < CROP_SIZE.MIN
-          ) {
-            resolve(false);
-            return;
-          }
+  const removeUrlFromCleanup = (url: string) => {
+    objectUrlsToCleanup.current = objectUrlsToCleanup.current.filter((u) => u !== url);
+  };
 
-          // Test image integrity by attempting to draw and read a 1x1 sample
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = Math.min(img.width, 1);
-            canvas.height = Math.min(img.height, 1);
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              resolve(false);
+  const getAspectRatioFromSelection = useCallback(
+    (value: string): number => {
+      switch (value) {
+        case TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.VALUE:
+          return originalDimensions ? originalDimensions.width / originalDimensions.height : 0;
+        case TEXT.MODAL.ASPECT_RATIOS.SQUARE.VALUE:
+          return 1;
+        default:
+          return 0;
+      }
+    },
+    [originalDimensions]
+  );
+
+  const getSelectionFromAspectRatio = (
+    ratio: number,
+    originalDimensions: { width: number; height: number } | null
+  ): string => {
+    if (ratio === 1) {
+      return TEXT.MODAL.ASPECT_RATIOS.SQUARE.VALUE;
+    } else if (
+      originalDimensions &&
+      Math.abs(ratio - originalDimensions.width / originalDimensions.height) < 0.0001
+    ) {
+      return TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.VALUE;
+    }
+    return TEXT.MODAL.ASPECT_RATIOS.FREE.VALUE;
+  };
+
+  const updateCropSettings = useCallback(
+    (data: Cropper.Data) => {
+      const aspectRatio = data.width / data.height;
+      const newCropSettings: CropSettings = {
+        x: Math.round(data.x),
+        y: Math.round(data.y),
+        width: Math.round(data.width),
+        height: Math.round(data.height),
+        aspectRatio
+      };
+
+      setActiveCropSettings(newCropSettings);
+
+      if (isPerImageCrop && currentImage) {
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === currentImage.id ? { ...img, cropSettings: newCropSettings } : img
+          )
+        );
+      } else {
+        setGlobalCropSettings(newCropSettings);
+      }
+    },
+    [currentImage, isPerImageCrop]
+  );
+
+  const validateImage = useCallback(
+    (file: File): Promise<{ isValid: boolean; error?: 'too_small' | 'too_large' | 'corrupt' }> => {
+      return new Promise((resolve) => {
+        try {
+          const img = new window.Image();
+          const objectUrl = URL.createObjectURL(file);
+          addUrlForCleanup(objectUrl);
+          const timeout = setTimeout(() => {
+            URL.revokeObjectURL(objectUrl);
+            removeUrlFromCleanup(objectUrl);
+            resolve({ isValid: false, error: 'corrupt' });
+          }, 10000);
+
+          img.onload = () => {
+            clearTimeout(timeout);
+            URL.revokeObjectURL(objectUrl);
+            removeUrlFromCleanup(objectUrl);
+            // Check for valid dimensions
+            if (img.width < IMAGE_SIZE.MIN || img.height < IMAGE_SIZE.MIN) {
+              resolve({ isValid: false, error: 'too_small' });
+              return;
+            }
+            if (img.width > IMAGE_SIZE.MAX || img.height > IMAGE_SIZE.MAX) {
+              resolve({ isValid: false, error: 'too_large' });
               return;
             }
 
-            ctx.drawImage(img, 0, 0, 1, 1);
-            ctx.getImageData(0, 0, 1, 1);
+            // Test image integrity by attempting to draw and read a 1x1 sample
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.min(img.width, 1);
+              canvas.height = Math.min(img.height, 1);
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                resolve({ isValid: false, error: 'corrupt' });
+                return;
+              }
 
-            resolve(true);
-          } catch (error) {
-            console.error('Image validation failed:', error);
-            resolve(false);
-          }
-        };
+              ctx.drawImage(img, 0, 0, 1, 1);
+              ctx.getImageData(0, 0, 1, 1);
 
-        img.onerror = () => {
-          clearTimeout(timeout);
-          URL.revokeObjectURL(objectUrl);
-          removeUrlFromCleanup(objectUrl);
-          resolve(false);
-        };
+              resolve({ isValid: true });
+            } catch (error) {
+              console.error('Image validation failed:', error);
+              resolve({ isValid: false, error: 'corrupt' });
+            }
+          };
 
-        img.src = objectUrl;
-      } catch (error) {
-        console.warn('Image validation failed:', error);
-        resolve(false);
-      }
-    });
-  }, []);
+          img.onerror = () => {
+            clearTimeout(timeout);
+            URL.revokeObjectURL(objectUrl);
+            removeUrlFromCleanup(objectUrl);
+            resolve({ isValid: false, error: 'corrupt' });
+          };
+
+          img.src = objectUrl;
+        } catch (error) {
+          console.warn('Image validation failed:', error);
+          resolve({ isValid: false, error: 'corrupt' });
+        }
+      });
+    },
+    []
+  );
 
   const processFiles = useCallback(
     (files: File[]) => {
@@ -662,6 +746,7 @@ export const ImageCropperApp: React.FC = () => {
         // Process files: validate images, create object URLs, and update state
         const filesToProcess = nonDuplicateFiles.slice(0, remainingSlots);
         const ignoredDueToLimit = Math.max(0, nonDuplicateFiles.length - remainingSlots);
+        let invalidSizeCount = 0;
         let invalidImageCount = 0;
 
         if (filesToProcess.length === 0) {
@@ -680,8 +765,8 @@ export const ImageCropperApp: React.FC = () => {
 
         for (const file of filesToProcess) {
           try {
-            const isValid = await validateImage(file);
-            if (isValid) {
+            const validation = await validateImage(file);
+            if (validation.isValid) {
               const objectUrl = URL.createObjectURL(file);
               addUrlForCleanup(objectUrl);
               const newImage = {
@@ -694,7 +779,11 @@ export const ImageCropperApp: React.FC = () => {
               };
               setImages((prev) => [...prev, newImage]);
             } else {
-              invalidImageCount++;
+              if (validation.error === 'too_small' || validation.error === 'too_large') {
+                invalidSizeCount++;
+              } else {
+                invalidImageCount++;
+              }
             }
           } catch (error) {
             console.error('Error processing image:', error);
@@ -702,6 +791,9 @@ export const ImageCropperApp: React.FC = () => {
           }
         }
 
+        if (invalidSizeCount > 0) {
+          messages.push(createToastMessage('invalid-dimensions', { count: invalidSizeCount }));
+        }
         if (invalidImageCount > 0) {
           messages.push(createToastMessage('invalid-image', { count: invalidImageCount }));
         }
@@ -722,74 +814,13 @@ export const ImageCropperApp: React.FC = () => {
     [images, toast, isProcessing, validateImage, existingFilenames, createToastMessage]
   );
 
-  const updateCropSettings = useCallback(
-    (data: Cropper.Data) => {
-      const aspectRatio = data.width / data.height;
-      const newCropSettings: CropSettings = {
-        x: Math.round(data.x),
-        y: Math.round(data.y),
-        width: Math.round(data.width),
-        height: Math.round(data.height),
-        aspectRatio
-      };
+  const handleFileInputClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
 
-      setActiveCropSettings(newCropSettings);
-
-      if (isPerImageCrop && currentImage) {
-        setImages((prev) =>
-          prev.map((img) =>
-            img.id === currentImage.id ? { ...img, cropSettings: newCropSettings } : img
-          )
-        );
-      } else {
-        setGlobalCropSettings(newCropSettings);
-      }
-    },
-    [currentImage, isPerImageCrop]
-  );
-
-  const getAspectRatioFromSelection = useCallback(
-    (value: string): number => {
-      switch (value) {
-        case TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.VALUE:
-          return originalDimensions ? originalDimensions.width / originalDimensions.height : 0;
-        case TEXT.MODAL.ASPECT_RATIOS.SQUARE.VALUE:
-          return 1;
-        default:
-          return 0;
-      }
-    },
-    [originalDimensions]
-  );
-
-  const getSelectionFromAspectRatio = (
-    ratio: number,
-    originalDimensions: { width: number; height: number } | null
-  ): string => {
-    if (ratio === 1) {
-      return TEXT.MODAL.ASPECT_RATIOS.SQUARE.VALUE;
-    } else if (
-      originalDimensions &&
-      Math.abs(ratio - originalDimensions.width / originalDimensions.height) < 0.0001
-    ) {
-      return TEXT.MODAL.ASPECT_RATIOS.ORIGINAL.VALUE;
-    }
-    return TEXT.MODAL.ASPECT_RATIOS.FREE.VALUE;
-  };
-
-  const getFileExtension = (filename: string): string => {
-    return filename.slice(((filename.lastIndexOf('.') - 1) >>> 0) + 2).toLowerCase();
-  };
-
-  const formatNumber = (num: number): string => {
-    const rounded = Math.round(num);
-    return rounded === 0 ? '0' : rounded.toString();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    processFiles(files);
-  };
+  const handlePageClick = useCallback(() => {
+    toast.closeAll();
+  }, [toast]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -800,14 +831,29 @@ export const ImageCropperApp: React.FC = () => {
     [processFiles]
   );
 
-  const handleFileInputClick = useCallback(() => {
-    fileInputRef.current?.click();
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    processFiles(files);
+  };
+
+  const handleDelete = (id: string) => {
+    setImages((prev) => {
+      const imageToDelete = prev.find((img) => img.id === id);
+      if (imageToDelete?.url) {
+        URL.revokeObjectURL(imageToDelete.url);
+        removeUrlFromCleanup(imageToDelete.url);
+      }
+      return prev.filter((img) => img.id !== id);
+    });
+  };
+
+  const handleCropMemoryChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setIsPerImageCrop(e.target.value === 'per-image');
   }, []);
 
-  const handlePageClick = useCallback(() => {
-    toast.closeAll();
-  }, [toast]);
-
+  // Handles numeric input changes for crop box dimensions
+  // If isComplete is false, only updates the input value
+  // If isComplete is true, validates and applies the change to the cropper
   const handleNumericChange = useCallback(
     (key: keyof CropSettings, value: string, isComplete: boolean) => {
       const cropper = cropperRef.current?.cropper;
@@ -819,7 +865,6 @@ export const ImageCropperApp: React.FC = () => {
       }
       let num = Math.min(Number(value), cropMax);
 
-      // For incomplete changes, just update the current input
       if (!isComplete) {
         setActiveCropSettings((prev) => ({
           ...prev,
@@ -893,52 +938,105 @@ export const ImageCropperApp: React.FC = () => {
     [handleNumericChange]
   );
 
-  const handleCropMemoryChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setIsPerImageCrop(e.target.value === 'per-image');
-  }, []);
-
+  // Handles crop box changes and enforces minimum dimensions
   const handleCropEvent = useCallback(
     (e: Cropper.CropEvent) => {
       if (isClosing) return;
       const cropper = cropperRef.current?.cropper;
       if (!cropper) return;
 
-      const data = cropper.getData();
+      let data = cropper.getData();
+
+      if (data.width < CROP_SIZE.MIN || data.height < CROP_SIZE.MIN) {
+        const newData = {
+          ...data,
+          width: Math.max(data.width, CROP_SIZE.MIN),
+          height: Math.max(data.height, CROP_SIZE.MIN)
+        };
+        cropper.setData(newData);
+        data = newData;
+      }
+
       updateCropSettings(data);
     },
     [isClosing, updateCropSettings]
   );
 
-  const inputProps = useCallback(
-    (key: keyof CropSettings) => ({
-      size: 'sm' as const,
-      w: '70px',
-      h: '32px',
-      lineHeight: '32px',
-      type: 'number' as const,
-      onChange:
-        key === 'x'
-          ? handleXChange
-          : key === 'y'
-            ? handleYChange
-            : key === 'width'
-              ? handleWidthChange
-              : handleHeightChange,
-      onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-          handleNumericChange(key, e.currentTarget.value, true);
+  // Initializes the cropper with saved or default settings
+  // Called after the cropper component is mounted and ready
+  const handleCropperReady = useCallback(() => {
+    if (isClosing) return;
+
+    const cropper = cropperRef.current?.cropper;
+    if (!cropper) return;
+
+    if (initialCropSettings) {
+      requestAnimationFrame(() => {
+        const aspectRatio = getAspectRatioFromSelection(selectedAspectRatio);
+        cropper.setAspectRatio(aspectRatio);
+
+        if (currentImage?.canvasData) {
+          cropper.setCanvasData(currentImage.canvasData);
         }
-      },
-      onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
-        handleNumericChange(key, e.target.value, true);
+
+        cropper.setData(initialCropSettings);
+        const data = cropper.getData();
+        updateCropSettings(data);
+      });
+    }
+  }, [
+    initialCropSettings,
+    isClosing,
+    updateCropSettings,
+    getAspectRatioFromSelection,
+    selectedAspectRatio,
+    currentImage
+  ]);
+
+  // Converts aspect ratio selection to numeric value and updates cropper
+  const handleAspectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setSelectedAspectRatio(value);
+
+    const aspectRatio = getAspectRatioFromSelection(value);
+
+    const cropper = cropperRef.current?.cropper;
+    if (cropper) {
+      const currentData = cropper.getData();
+      cropper.setAspectRatio(aspectRatio);
+
+      const newCropSettings: CropSettings = {
+        x: currentData.x,
+        y: currentData.y,
+        width: currentData.width,
+        height: aspectRatio ? currentData.width / aspectRatio : currentData.height,
+        aspectRatio
+      };
+
+      cropper.setData({
+        x: newCropSettings.x,
+        y: newCropSettings.y,
+        width: newCropSettings.width,
+        height: newCropSettings.height
+      });
+
+      setActiveCropSettings(newCropSettings);
+
+      if (isPerImageCrop && currentImage) {
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === currentImage.id ? { ...img, cropSettings: newCropSettings } : img
+          )
+        );
+      } else {
+        setGlobalCropSettings(newCropSettings);
       }
-    }),
-    [handleXChange, handleYChange, handleWidthChange, handleHeightChange, handleNumericChange]
-  );
+    }
+  };
 
   // Opens crop modal with settings based on mode:
   // Per-Image: image settings -> default
-  // Global: global -> image -> default
+  // Global: global settings -> default
   const openCropModal = (image: ImageData) => {
     setCurrentImage(image);
     const img = new window.Image();
@@ -961,7 +1059,6 @@ export const ImageCropperApp: React.FC = () => {
 
     img.onload = () => {
       const dimensions = { width: img.width, height: img.height };
-
       setOriginalDimensions(dimensions);
 
       // Default centered 50% crop
@@ -975,10 +1072,9 @@ export const ImageCropperApp: React.FC = () => {
 
       const initialSettings = isPerImageCrop
         ? image.cropSettings || defaultSettings
-        : globalCropSettings || image.cropSettings || defaultSettings;
+        : globalCropSettings || defaultSettings;
 
       setInitialCropSettings(initialSettings);
-
       setActiveCropSettings(initialSettings);
 
       const initialAspectRatio = getSelectionFromAspectRatio(
@@ -993,29 +1089,6 @@ export const ImageCropperApp: React.FC = () => {
 
     img.src = image.url;
   };
-
-  const handleCropperReady = useCallback(() => {
-    if (isClosing) return;
-
-    const cropper = cropperRef.current?.cropper;
-    if (!cropper) return;
-
-    if (initialCropSettings) {
-      requestAnimationFrame(() => {
-        const aspectRatio = getAspectRatioFromSelection(selectedAspectRatio);
-        cropper.setAspectRatio(aspectRatio);
-        cropper.setData(initialCropSettings);
-        const data = cropper.getData();
-        updateCropSettings(data);
-      });
-    }
-  }, [
-    initialCropSettings,
-    isClosing,
-    updateCropSettings,
-    getAspectRatioFromSelection,
-    selectedAspectRatio
-  ]);
 
   // Handles crop & save operation using modern File System API if available
   const handleCrop = async () => {
@@ -1051,6 +1124,7 @@ export const ImageCropperApp: React.FC = () => {
             addUrlForCleanup(saveUrl);
 
             // Preserve original image while updating crop-related properties
+            const canvasData = cropper.getCanvasData();
             setImages((prev) =>
               prev.map((img) =>
                 img.id === currentImage.id
@@ -1058,6 +1132,7 @@ export const ImageCropperApp: React.FC = () => {
                       ...img,
                       cropped: true,
                       cropSettings: newCropSettings,
+                      canvasData: canvasData,
                       cropHistory: [
                         ...img.cropHistory,
                         {
@@ -1147,39 +1222,46 @@ export const ImageCropperApp: React.FC = () => {
     const cropper = cropperRef.current?.cropper;
     if (cropper && currentImage && initialCropSettings) {
       const currentData = cropper.getData();
+      const currentCanvasData = cropper.getCanvasData();
 
-      const aspectRatio = saveOnCancel
-        ? getAspectRatioFromSelection(selectedAspectRatio)
-        : getAspectRatioFromSelection('free');
+      if (saveOnCancel) {
+        const aspectRatio = getAspectRatioFromSelection(selectedAspectRatio);
+        const newCropSettings: CropSettings = {
+          x: currentData.x,
+          y: currentData.y,
+          width: currentData.width,
+          height: currentData.height,
+          aspectRatio
+        };
 
-      const newCropSettings: CropSettings = saveOnCancel
-        ? {
-            x: currentData.x,
-            y: currentData.y,
-            width: currentData.width,
-            height: currentData.height,
-            aspectRatio
-          }
-        : {
-            x: initialCropSettings.x,
-            y: initialCropSettings.y,
-            width: initialCropSettings.width,
-            height: initialCropSettings.height,
-            aspectRatio
-          };
-
-      // Always update the settings (either to current or initial)
-      setGlobalCropSettings(newCropSettings);
-      setImages((prev) =>
-        prev.map((img) =>
-          img.id === currentImage.id
-            ? {
-                ...img,
-                cropSettings: newCropSettings
-              }
-            : img
-        )
-      );
+        if (isPerImageCrop) {
+          setImages((prev) =>
+            prev.map((img) =>
+              img.id === currentImage.id
+                ? {
+                    ...img,
+                    cropSettings: newCropSettings,
+                    canvasData: currentCanvasData
+                  }
+                : img
+            )
+          );
+        } else {
+          setGlobalCropSettings(newCropSettings);
+        }
+      } else if (isPerImageCrop) {
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === currentImage.id
+              ? {
+                  ...img,
+                  cropSettings: undefined,
+                  canvasData: undefined
+                }
+              : img
+          )
+        );
+      }
 
       if (!saveOnCancel) {
         setSaveOnCancel(false);
@@ -1191,57 +1273,32 @@ export const ImageCropperApp: React.FC = () => {
     onClose();
   };
 
-  // Converts aspect ratio selection to numeric value and updates cropper
-  const handleAspectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    setSelectedAspectRatio(value);
-
-    const aspectRatio = getAspectRatioFromSelection(value);
-
-    const cropper = cropperRef.current?.cropper;
-    if (cropper) {
-      const currentData = cropper.getData();
-      cropper.setAspectRatio(aspectRatio);
-
-      const newCropSettings: CropSettings = {
-        x: currentData.x,
-        y: currentData.y,
-        width: currentData.width,
-        height: aspectRatio ? currentData.width / aspectRatio : currentData.height,
-        aspectRatio
-      };
-
-      cropper.setData({
-        x: newCropSettings.x,
-        y: newCropSettings.y,
-        width: newCropSettings.width,
-        height: newCropSettings.height
-      });
-
-      setActiveCropSettings(newCropSettings);
-
-      if (isPerImageCrop && currentImage) {
-        setImages((prev) =>
-          prev.map((img) =>
-            img.id === currentImage.id ? { ...img, cropSettings: newCropSettings } : img
-          )
-        );
-      } else {
-        setGlobalCropSettings(newCropSettings);
+  const inputProps = useCallback(
+    (key: keyof CropSettings) => ({
+      size: 'sm' as const,
+      w: '70px',
+      h: '32px',
+      lineHeight: '32px',
+      type: 'number' as const,
+      onChange:
+        key === 'x'
+          ? handleXChange
+          : key === 'y'
+            ? handleYChange
+            : key === 'width'
+              ? handleWidthChange
+              : handleHeightChange,
+      onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+          handleNumericChange(key, e.currentTarget.value, true);
+        }
+      },
+      onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
+        handleNumericChange(key, e.target.value, true);
       }
-    }
-  };
-
-  const handleDelete = (id: string) => {
-    setImages((prev) => {
-      const imageToDelete = prev.find((img) => img.id === id);
-      if (imageToDelete?.url) {
-        URL.revokeObjectURL(imageToDelete.url);
-        removeUrlFromCleanup(imageToDelete.url);
-      }
-      return prev.filter((img) => img.id !== id);
-    });
-  };
+    }),
+    [handleXChange, handleYChange, handleWidthChange, handleHeightChange, handleNumericChange]
+  );
 
   useEffect(() => {
     return () => {
@@ -1249,6 +1306,15 @@ export const ImageCropperApp: React.FC = () => {
         clearTimeout(processingTimeoutRef.current);
         processingTimeoutRef.current = null;
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      objectUrlsToCleanup.current.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+      objectUrlsToCleanup.current = [];
     };
   }, []);
 
@@ -1269,15 +1335,6 @@ export const ImageCropperApp: React.FC = () => {
       console.warn('Error setting up drag and drop:', error);
     }
   }, [handleDrop]);
-
-  useEffect(() => {
-    return () => {
-      objectUrlsToCleanup.current.forEach((url) => {
-        URL.revokeObjectURL(url);
-      });
-      objectUrlsToCleanup.current = [];
-    };
-  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -1659,33 +1716,61 @@ export const ImageCropperApp: React.FC = () => {
             >
               {currentImage && (
                 <>
-                  <Cropper
-                    src={currentImage.url}
-                    style={{ height: '400px', width: '100%' }}
-                    initialAspectRatio={activeCropSettings.aspectRatio}
-                    data={initialCropSettings || activeCropSettings}
-                    guides={true}
-                    crop={handleCropEvent}
-                    ready={handleCropperReady}
-                    ref={cropperRef}
-                    viewMode={1}
-                    dragMode="move"
-                    cropBoxMovable={true}
-                    cropBoxResizable={true}
-                    toggleDragModeOnDblclick={false}
-                    responsive={true}
-                    restore={true}
-                    checkOrientation={true}
-                    background={true}
-                    modal={true}
-                    highlight={true}
-                    center={true}
-                    scalable={true}
-                    zoomable={true}
-                    movable={true}
-                    minContainerWidth={200}
-                    minContainerHeight={200}
-                  />
+                  <Box
+                    className="gip-cropper-container"
+                    mx="auto" // Center horizontally
+                    style={{
+                      aspectRatio: originalDimensions
+                        ? `${originalDimensions.width} / ${originalDimensions.height}`
+                        : undefined,
+                      width: originalDimensions
+                        ? (() => {
+                            const targetHeightPortrait = 450;
+                            const targetWidthLandscape = 450;
+                            const aspectRatio =
+                              originalDimensions.width / originalDimensions.height;
+                            if (aspectRatio < 1) {
+                              // Portrait: use target height directly
+                              return `${targetHeightPortrait * aspectRatio}px`;
+                            } else {
+                              // Landscape: calculate width to maintain aspect ratio
+                              return `${targetWidthLandscape * aspectRatio}px`;
+                            }
+                          })()
+                        : '100%',
+                      maxWidth: '100%'
+                    }}
+                  >
+                    <Cropper
+                      src={currentImage.url}
+                      style={{ height: '100%', width: '100%' }}
+                      minContainerWidth={IMAGE_SIZE.MIN}
+                      minContainerHeight={IMAGE_SIZE.MIN}
+                      minCropBoxWidth={CROP_SIZE.MIN}
+                      minCropBoxHeight={CROP_SIZE.MIN}
+                      initialAspectRatio={activeCropSettings.aspectRatio}
+                      data={initialCropSettings || activeCropSettings}
+                      guides={true}
+                      crop={handleCropEvent}
+                      ready={handleCropperReady}
+                      ref={cropperRef}
+                      viewMode={1}
+                      dragMode="move"
+                      restore={true}
+                      cropBoxMovable={true}
+                      cropBoxResizable={true}
+                      scalable={true}
+                      zoomable={true}
+                      movable={true}
+                      background={true}
+                      modal={true}
+                      highlight={true}
+                      center={true}
+                      toggleDragModeOnDblclick={false}
+                      responsive={true}
+                      checkOrientation={true}
+                    />
+                  </Box>
                   <VStack spacing={0} w="full">
                     <Text
                       fontSize="sm"
