@@ -252,6 +252,14 @@ const formatNumber = (num: number): string => {
   return rounded === 0 ? '0' : rounded.toString();
 };
 
+const convertToDisplaySize = (actualSize: number, originalSize: number, displaySize: number): number => {
+  return Math.round((actualSize / originalSize) * displaySize);
+};
+
+const convertToActualSize = (displaySize: number, originalSize: number, containerSize: number): number => {
+  return Math.round((displaySize / containerSize) * originalSize);
+};
+
 // Displays a filename with intelligent truncation
 // Maintains file extension
 // Truncates from the middle
@@ -859,11 +867,7 @@ export const ImageCropperApp: React.FC = () => {
       const cropper = cropperRef.current?.cropper;
       if (!cropper) return;
 
-      let cropMax = CROP_SIZE.MAX;
-      if (['x', 'y'].includes(key)) {
-        cropMax = CROP_SIZE.MAX - CROP_SIZE.MIN;
-      }
-      let num = Math.min(Number(value), cropMax);
+      let num = Math.min(Number(value), CROP_SIZE.MAX);
 
       if (!isComplete) {
         setActiveCropSettings((prev) => ({
@@ -877,6 +881,16 @@ export const ImageCropperApp: React.FC = () => {
       const canvasData = cropper.getCanvasData();
       const imageWidth = canvasData.naturalWidth;
       const imageHeight = canvasData.naturalHeight;
+      const containerData = cropper.getContainerData();
+
+      // Convert the input value to actual image dimensions
+      if (['width', 'height'].includes(key)) {
+        num = convertToActualSize(
+          num,
+          key === 'width' ? imageWidth : imageHeight,
+          key === 'width' ? containerData.width : containerData.height
+        );
+      }
 
       const newData = { ...currentData };
 
@@ -888,22 +902,28 @@ export const ImageCropperApp: React.FC = () => {
           newData.y = Math.max(0, Math.min(imageHeight - currentData.height, num));
           break;
         case 'width':
-          newData.width = Math.max(CROP_SIZE.MIN, Math.min(imageWidth - currentData.x, num));
+          newData.width = Math.max(1, Math.min(imageWidth - currentData.x, num));
           break;
         case 'height':
-          newData.height = Math.max(CROP_SIZE.MIN, Math.min(imageHeight - currentData.y, num));
+          newData.height = Math.max(1, Math.min(imageHeight - currentData.y, num));
           break;
       }
 
       cropper.setData(newData);
 
+      // Get the final data and convert back to display dimensions for the inputs
       const finalData = cropper.getData();
+      const displayData = {
+        ...finalData,
+        width: convertToDisplaySize(finalData.width, imageWidth, containerData.width),
+        height: convertToDisplaySize(finalData.height, imageHeight, containerData.height)
+      };
 
       setActiveCropSettings({
-        x: Math.round(finalData.x),
-        y: Math.round(finalData.y),
-        width: Math.round(finalData.width),
-        height: Math.round(finalData.height),
+        x: Math.round(displayData.x),
+        y: Math.round(displayData.y),
+        width: Math.round(displayData.width),
+        height: Math.round(displayData.height),
         aspectRatio: activeCropSettings.aspectRatio
       });
     },
