@@ -252,11 +252,19 @@ const formatNumber = (num: number): string => {
   return rounded === 0 ? '0' : rounded.toString();
 };
 
-const convertToDisplaySize = (actualSize: number, originalSize: number, displaySize: number): number => {
+const convertToDisplaySize = (
+  actualSize: number,
+  originalSize: number,
+  displaySize: number
+): number => {
   return Math.round((actualSize / originalSize) * displaySize);
 };
 
-const convertToActualSize = (displaySize: number, originalSize: number, containerSize: number): number => {
+const convertToActualSize = (
+  displaySize: number,
+  originalSize: number,
+  containerSize: number
+): number => {
   return Math.round((displaySize / containerSize) * originalSize);
 };
 
