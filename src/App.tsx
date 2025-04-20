@@ -638,7 +638,7 @@ export const ImageCropperApp: React.FC = () => {
             clearTimeout(timeout);
             URL.revokeObjectURL(objectUrl);
             removeUrlFromCleanup(objectUrl);
-            // Check for valid dimensions
+
             if (img.width < IMAGE_SIZE.MIN || img.height < IMAGE_SIZE.MIN) {
               resolve({ isValid: false, error: 'too_small' });
               return;
