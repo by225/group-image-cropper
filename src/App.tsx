@@ -1,4 +1,4 @@
-// App.tsx [27]
+// App.tsx [29]
 import React, { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'react';
 // prettier-ignore
 import {
@@ -971,7 +971,6 @@ export const ImageCropperApp: React.FC = () => {
         cropper.setAspectRatio(aspectRatio);
 
         if (currentImage?.canvasData) {
-          console.log('Applying saved canvas data');
           cropper.setCanvasData(currentImage.canvasData);
         }
 
