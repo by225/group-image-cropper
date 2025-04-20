@@ -1,4 +1,4 @@
-// App.tsx
+// App.tsx [27]
 import React, { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'react';
 // prettier-ignore
 import {
@@ -770,20 +770,7 @@ export const ImageCropperApp: React.FC = () => {
         const ignoredDueToLimit = Math.max(0, nonDuplicateFiles.length - remainingSlots);
         let invalidSizeCount = 0;
         let invalidImageCount = 0;
-
-        if (filesToProcess.length === 0) {
-          if (ignoredDueToLimit > 0) {
-            messages.push(
-              createToastMessage('limit', {
-                added: filesToProcess.length,
-                ignored: ignoredDueToLimit
-              })
-            );
-          }
-          setTimeout(() => setIsProcessing(false), TIMING.FADE_OUT);
-          setTimeout(() => messages.forEach((msg) => toast(msg)), TIMING.TOAST_DELAY);
-          return;
-        }
+        let successfullyAdded = 0;
 
         for (const file of filesToProcess) {
           try {
@@ -800,6 +787,7 @@ export const ImageCropperApp: React.FC = () => {
                 cropHistory: []
               };
               setImages((prev) => [...prev, newImage]);
+              successfullyAdded++;
             } else {
               if (validation.error === 'too_small' || validation.error === 'too_large') {
                 invalidSizeCount++;
@@ -820,10 +808,11 @@ export const ImageCropperApp: React.FC = () => {
           messages.push(createToastMessage('invalid-image', { count: invalidImageCount }));
         }
 
+        // Only show limit message if there were actually files ignored due to the limit
         if (ignoredDueToLimit > 0) {
           messages.push(
             createToastMessage('limit', {
-              added: filesToProcess.length - invalidImageCount,
+              added: successfullyAdded,
               ignored: ignoredDueToLimit
             })
           );
