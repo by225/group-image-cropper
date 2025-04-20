@@ -597,25 +597,31 @@ export const ImageCropperApp: React.FC = () => {
 
   const updateCropSettings = useCallback(
     (data: Cropper.Data) => {
-      const aspectRatio = data.width / data.height;
-      const newCropSettings: CropSettings = {
+      const cropper = cropperRef.current?.cropper;
+      if (!cropper) return;
+
+      const canvasData = cropper.getCanvasData();
+      const containerData = cropper.getContainerData();
+
+      // Convert actual dimensions to display dimensions
+      const displaySettings: CropSettings = {
         x: Math.round(data.x),
         y: Math.round(data.y),
-        width: Math.round(data.width),
-        height: Math.round(data.height),
-        aspectRatio
+        width: convertToDisplaySize(data.width, canvasData.naturalWidth, containerData.width),
+        height: convertToDisplaySize(data.height, canvasData.naturalHeight, containerData.height),
+        aspectRatio: data.width / data.height
       };
 
-      setActiveCropSettings(newCropSettings);
+      setActiveCropSettings(displaySettings);
 
       if (isPerImageCrop && currentImage) {
         setImages((prev) =>
           prev.map((img) =>
-            img.id === currentImage.id ? { ...img, cropSettings: newCropSettings } : img
+            img.id === currentImage.id ? { ...img, cropSettings: displaySettings } : img
           )
         );
       } else {
-        setGlobalCropSettings(newCropSettings);
+        setGlobalCropSettings(displaySettings);
       }
     },
     [currentImage, isPerImageCrop]
@@ -887,15 +893,13 @@ export const ImageCropperApp: React.FC = () => {
 
       const currentData = cropper.getData();
       const canvasData = cropper.getCanvasData();
-      const imageWidth = canvasData.naturalWidth;
-      const imageHeight = canvasData.naturalHeight;
       const containerData = cropper.getContainerData();
 
-      // Convert the input value to actual image dimensions
+      // Convert display dimensions to actual dimensions
       if (['width', 'height'].includes(key)) {
         num = convertToActualSize(
           num,
-          key === 'width' ? imageWidth : imageHeight,
+          key === 'width' ? canvasData.naturalWidth : canvasData.naturalHeight,
           key === 'width' ? containerData.width : containerData.height
         );
       }
@@ -904,38 +908,24 @@ export const ImageCropperApp: React.FC = () => {
 
       switch (key) {
         case 'x':
-          newData.x = Math.max(0, Math.min(imageWidth - currentData.width, num));
+          newData.x = Math.max(0, Math.min(canvasData.naturalWidth - currentData.width, num));
           break;
         case 'y':
-          newData.y = Math.max(0, Math.min(imageHeight - currentData.height, num));
+          newData.y = Math.max(0, Math.min(canvasData.naturalHeight - currentData.height, num));
           break;
         case 'width':
-          newData.width = Math.max(1, Math.min(imageWidth - currentData.x, num));
+          newData.width = Math.max(1, Math.min(canvasData.naturalWidth - currentData.x, num));
           break;
         case 'height':
-          newData.height = Math.max(1, Math.min(imageHeight - currentData.y, num));
+          newData.height = Math.max(1, Math.min(canvasData.naturalHeight - currentData.y, num));
           break;
       }
 
       cropper.setData(newData);
-
-      // Get the final data and convert back to display dimensions for the inputs
       const finalData = cropper.getData();
-      const displayData = {
-        ...finalData,
-        width: convertToDisplaySize(finalData.width, imageWidth, containerData.width),
-        height: convertToDisplaySize(finalData.height, imageHeight, containerData.height)
-      };
-
-      setActiveCropSettings({
-        x: Math.round(displayData.x),
-        y: Math.round(displayData.y),
-        width: Math.round(displayData.width),
-        height: Math.round(displayData.height),
-        aspectRatio: activeCropSettings.aspectRatio
-      });
+      updateCropSettings(finalData);
     },
-    [activeCropSettings.aspectRatio]
+    [updateCropSettings]
   );
 
   const handleXChange = useCallback(
