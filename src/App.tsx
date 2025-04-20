@@ -143,13 +143,7 @@ const TEXT = {
   TOASTS: {
     LIMIT: {
       TITLE: 'Images ignored',
-      DESC: {
-        AT_LIMIT: (count: number) =>
-          `${count} ${pluralize('image', count)} ignored because of limit`,
-        PARTIAL: (added: number, ignored: number) =>
-          `${pluralize('First image', `First ${added} images`, added)} added, ` +
-          `${ignored} ${pluralize('image was', 'images were', ignored)} ignored due to limit.`
-      }
+      DESC: (count: number) => `${count} ${pluralize('image', count)} ignored because of limit`
     },
     DUPLICATES: {
       TITLE: 'Duplicates detected',
@@ -164,17 +158,18 @@ const TEXT = {
     },
     FILE_SIZE: {
       TITLE: 'File too large',
-      DESC: (filename: string) => `${filename} exceeds maximum size of 10MB`
+      DESC: (count: number) =>
+        `${count} ${pluralize('image exceeds', 'images exceed', count)} maximum size of 10MB`
     },
     MIME_MISMATCH: {
       TITLE: 'Mismatched file type',
-      DESC: (filename: string, mimeType: string) =>
-        `${filename}: File extension doesn't match its content type (${mimeType})`
+      DESC: (count: number) =>
+        `${count} ${pluralize("file extension doesn't match its", "file extensions don't match their", count)} content type)`
     },
     INVALID_DIMENSIONS: {
       TITLE: 'Invalid image dimensions',
       DESC: (count: number) =>
-        `${count} ${pluralize('image is', 'images are', count)} are not between\n` +
+        `${count} ${pluralize('image is', 'images are', count)} not between\n` +
         `${IMAGE_SIZE.MIN}px and ${IMAGE_SIZE.MAX}px in either direction`
     },
     INVALID_IMAGES: {
@@ -501,11 +496,7 @@ export const ImageCropperApp: React.FC = () => {
       switch (type) {
         case 'limit':
           message.title = TEXT.TOASTS.LIMIT.TITLE;
-          if (params?.ignored === undefined) {
-            message.description = TEXT.TOASTS.LIMIT.DESC.AT_LIMIT(params?.count || 0);
-          } else {
-            message.description = TEXT.TOASTS.LIMIT.DESC.PARTIAL(params.added || 0, params.ignored);
-          }
+          message.description = TEXT.TOASTS.LIMIT.DESC(params?.count || 0);
           break;
 
         case 'duplicate':
@@ -520,15 +511,12 @@ export const ImageCropperApp: React.FC = () => {
 
         case 'file-size':
           message.title = TEXT.TOASTS.FILE_SIZE.TITLE;
-          message.description = TEXT.TOASTS.FILE_SIZE.DESC(params?.filename || '');
+          message.description = TEXT.TOASTS.FILE_SIZE.DESC(params?.count || 0);
           break;
 
         case 'mime-mismatch':
           message.title = TEXT.TOASTS.MIME_MISMATCH.TITLE;
-          message.description = TEXT.TOASTS.MIME_MISMATCH.DESC(
-            params?.filename || '',
-            params?.mimeType || ''
-          );
+          message.description = TEXT.TOASTS.MIME_MISMATCH.DESC(params?.count || 0);
           break;
 
         case 'invalid-dimensions':
@@ -693,7 +681,7 @@ export const ImageCropperApp: React.FC = () => {
   );
 
   const processFiles = useCallback(
-    (files: File[]) => {
+    async (files: File[]) => {
       if (isProcessing) return;
       if (files.length === 0) return;
 
@@ -705,124 +693,123 @@ export const ImageCropperApp: React.FC = () => {
       toast.closeAll();
       setIsProcessing(true);
 
-      processingTimeoutRef.current = setTimeout(async () => {
-        const messages: Array<{
-          title: string;
-          description: string;
-          status: 'warning' | 'success' | 'error' | 'info';
-        }> = [];
+      const messages: Array<ToastMessage> = [];
+      const validFiles: File[] = [];
 
-        // Check limit first
-        const remainingSlots = Math.max(0, 10 - images.length);
-        if (remainingSlots === 0) {
-          messages.push(createToastMessage('limit', { count: files.length }));
-          setTimeout(() => setIsProcessing(false), TIMING.FADE_OUT);
-          setTimeout(() => messages.forEach((msg) => toast(msg)), TIMING.TOAST_DELAY);
-          return;
+      let invalidTypeCount = 0;
+      let oversizedCount = 0;
+      let invalidDimensionsCount = 0;
+      let duplicateCount = 0;
+
+      for (const file of files) {
+        if (!Object.keys(ACCEPTED_TYPES).includes(file.type)) {
+          invalidTypeCount++;
+          continue;
         }
 
-        // Filter out non-image files by size & MIME type
-        const imageFiles = files.filter((f) => {
-          if (!Object.keys(ACCEPTED_TYPES).includes(f.type)) return false;
+        const extension = getFileExtension(file.name);
+        const acceptedExtensions = ACCEPTED_TYPES[file.type];
+        if (!acceptedExtensions.includes(`.${extension}`)) {
+          invalidTypeCount++;
+          continue;
+        }
 
-          if (f.size > MAX_FILE_SIZE) {
-            messages.push(createToastMessage('file-size', { filename: f.name }));
-            return false;
+        if (file.size > MAX_FILE_SIZE) {
+          oversizedCount++;
+          continue;
+        }
+
+        try {
+          const validation = await validateImage(file);
+          if (!validation.isValid) {
+            invalidDimensionsCount++;
+            continue;
           }
 
-          const extension = getFileExtension(f.name);
-          const acceptedExtensions = ACCEPTED_TYPES[f.type];
-          if (!acceptedExtensions.includes(`.${extension}`)) {
-            messages.push(
-              createToastMessage('mime-mismatch', { filename: f.name, mimeType: f.type })
-            );
-            return false;
+          if (existingFilenames.has(file.name)) {
+            duplicateCount++;
+            continue;
           }
 
-          return true;
+          validFiles.push(file);
+        } catch (error) {
+          console.error('Rejected file - validation error:', {
+            name: file.name,
+            error
+          });
+          invalidDimensionsCount++;
+          continue;
+        }
+      }
+
+      if (invalidTypeCount > 0) {
+        messages.push({
+          status: 'warning',
+          title: TEXT.TOASTS.INVALID_TYPE.TITLE,
+          description: TEXT.TOASTS.INVALID_TYPE.DESC(invalidTypeCount)
         });
-        const invalidTypeCount = files.length - imageFiles.length;
+      }
 
-        if (invalidTypeCount > 0) {
-          messages.push(createToastMessage('invalid-type', { count: invalidTypeCount }));
-          if (imageFiles.length === 0) {
-            setTimeout(() => setIsProcessing(false), TIMING.FADE_OUT);
-            setTimeout(() => messages.forEach((msg) => toast(msg)), TIMING.TOAST_DELAY);
-            return;
-          }
+      if (oversizedCount > 0) {
+        messages.push({
+          status: 'warning',
+          title: TEXT.TOASTS.FILE_SIZE.TITLE,
+          description: TEXT.TOASTS.FILE_SIZE.DESC(oversizedCount)
+        });
+      }
+
+      if (invalidDimensionsCount > 0) {
+        messages.push({
+          status: 'warning',
+          title: TEXT.TOASTS.INVALID_DIMENSIONS.TITLE,
+          description: TEXT.TOASTS.INVALID_DIMENSIONS.DESC(invalidDimensionsCount)
+        });
+      }
+
+      if (duplicateCount > 0) {
+        messages.push({
+          status: 'warning',
+          title: TEXT.TOASTS.DUPLICATES.TITLE,
+          description: TEXT.TOASTS.DUPLICATES.DESC(duplicateCount)
+        });
+      }
+
+      const remainingSlots = Math.max(0, 10 - images.length);
+      const filesToProcess = validFiles.slice(0, remainingSlots);
+
+      if (validFiles.length > remainingSlots) {
+        messages.push({
+          status: 'warning',
+          title: TEXT.TOASTS.LIMIT.TITLE,
+          description: TEXT.TOASTS.LIMIT.DESC(validFiles.length - remainingSlots)
+        });
+      }
+
+      for (const file of filesToProcess) {
+        try {
+          const objectUrl = URL.createObjectURL(file);
+          addUrlForCleanup(objectUrl);
+          const newImage = {
+            id: `${file.name}-${Date.now()}`,
+            file,
+            url: objectUrl,
+            objectUrl: objectUrl,
+            cropped: false,
+            cropHistory: []
+          };
+          setImages((prev) => [...prev, newImage]);
+        } catch (error) {
+          console.error('Error creating object URL:', {
+            name: file.name,
+            error
+          });
         }
+      }
 
-        // Filter duplicates
-        const nonDuplicateFiles = imageFiles.filter((file) => !existingFilenames.has(file.name));
-        const duplicateCount = imageFiles.length - nonDuplicateFiles.length;
-
-        if (duplicateCount > 0) {
-          messages.push(createToastMessage('duplicate', { count: duplicateCount }));
-          if (nonDuplicateFiles.length === 0) {
-            setTimeout(() => setIsProcessing(false), TIMING.FADE_OUT);
-            setTimeout(() => messages.forEach((msg) => toast(msg)), TIMING.TOAST_DELAY);
-            return;
-          }
-        }
-
-        // Process files: validate images, create object URLs, and update state
-        const filesToProcess = nonDuplicateFiles.slice(0, remainingSlots);
-        const ignoredDueToLimit = Math.max(0, nonDuplicateFiles.length - remainingSlots);
-        let invalidSizeCount = 0;
-        let invalidImageCount = 0;
-        let successfullyAdded = 0;
-
-        for (const file of filesToProcess) {
-          try {
-            const validation = await validateImage(file);
-            if (validation.isValid) {
-              const objectUrl = URL.createObjectURL(file);
-              addUrlForCleanup(objectUrl);
-              const newImage = {
-                id: `${file.name}-${Date.now()}`,
-                file,
-                url: objectUrl,
-                objectUrl: objectUrl,
-                cropped: false,
-                cropHistory: []
-              };
-              setImages((prev) => [...prev, newImage]);
-              successfullyAdded++;
-            } else {
-              if (validation.error === 'too_small' || validation.error === 'too_large') {
-                invalidSizeCount++;
-              } else {
-                invalidImageCount++;
-              }
-            }
-          } catch (error) {
-            console.error('Error processing image:', error);
-            invalidImageCount++;
-          }
-        }
-
-        if (invalidSizeCount > 0) {
-          messages.push(createToastMessage('invalid-dimensions', { count: invalidSizeCount }));
-        }
-        if (invalidImageCount > 0) {
-          messages.push(createToastMessage('invalid-image', { count: invalidImageCount }));
-        }
-
-        // Only show limit message if there were actually files ignored due to the limit
-        if (ignoredDueToLimit > 0) {
-          messages.push(
-            createToastMessage('limit', {
-              added: successfullyAdded,
-              ignored: ignoredDueToLimit
-            })
-          );
-        }
-
-        setTimeout(() => setIsProcessing(false), TIMING.FADE_OUT);
-        setTimeout(() => messages.forEach((msg) => toast(msg)), TIMING.TOAST_DELAY);
-      }, TIMING.DEBOUNCE);
+      setIsProcessing(false);
+      messages.forEach((msg) => toast(msg));
     },
-    [images, toast, isProcessing, validateImage, existingFilenames, createToastMessage]
+    [images, toast, isProcessing, validateImage, existingFilenames]
   );
 
   const handleFileInputClick = useCallback(() => {
@@ -870,7 +857,7 @@ export const ImageCropperApp: React.FC = () => {
       const cropper = cropperRef.current?.cropper;
       if (!cropper) return;
 
-      let num = Math.min(Number(value), CROP_SIZE.MAX);
+      let num = Math.max(1, Math.min(Number(value), CROP_SIZE.MAX));
 
       if (!isComplete) {
         setActiveCropSettings((prev) => ({
@@ -971,6 +958,7 @@ export const ImageCropperApp: React.FC = () => {
 
   // Initializes the cropper with saved or default settings
   // Called after the cropper component is mounted and ready
+  // Initializes the cropper with saved or default settings
   const handleCropperReady = useCallback(() => {
     if (isClosing) return;
 
@@ -983,6 +971,7 @@ export const ImageCropperApp: React.FC = () => {
         cropper.setAspectRatio(aspectRatio);
 
         if (currentImage?.canvasData) {
+          console.log('Applying saved canvas data');
           cropper.setCanvasData(currentImage.canvasData);
         }
 
@@ -1111,6 +1100,7 @@ export const ImageCropperApp: React.FC = () => {
           type: blob.type
         });
         const data = cropper.getData();
+        const canvasData = cropper.getCanvasData();
 
         const newCropSettings: CropSettings = {
           x: data.x,
@@ -1125,42 +1115,35 @@ export const ImageCropperApp: React.FC = () => {
             | ShowSaveFilePicker
             | undefined;
 
+          const newImageState = {
+            ...currentImage,
+            cropped: true,
+            cropSettings: newCropSettings,
+            canvasData: canvasData,
+            cropHistory: [
+              ...currentImage.cropHistory,
+              {
+                x: Math.round(data.x),
+                y: Math.round(data.y),
+                width: Math.round(data.width),
+                height: Math.round(data.height)
+              }
+            ]
+          };
+
           if (showSaveFilePicker) {
-            // Create temporary object URL for File System API save
             const saveUrl = URL.createObjectURL(croppedFile);
             addUrlForCleanup(saveUrl);
 
-            // Preserve original image while updating crop-related properties
-            const canvasData = cropper.getCanvasData();
             setImages((prev) =>
-              prev.map((img) =>
-                img.id === currentImage.id
-                  ? {
-                      ...img,
-                      cropped: true,
-                      cropSettings: newCropSettings,
-                      canvasData: canvasData,
-                      cropHistory: [
-                        ...img.cropHistory,
-                        {
-                          x: Math.round(data.x),
-                          y: Math.round(data.y),
-                          width: Math.round(data.width),
-                          height: Math.round(data.height)
-                        }
-                      ]
-                    }
-                  : img
-              )
+              prev.map((img) => (img.id === currentImage.id ? newImageState : img))
             );
 
             setGlobalCropSettings(newCropSettings);
 
             URL.revokeObjectURL(saveUrl);
             removeUrlFromCleanup(saveUrl);
-            onClose();
           } else {
-            // Create temporary object URL and link for fallback browser download
             const downloadUrl = URL.createObjectURL(croppedFile);
             addUrlForCleanup(downloadUrl);
             const link = document.createElement('a');
@@ -1168,50 +1151,32 @@ export const ImageCropperApp: React.FC = () => {
             link.download = croppedFile.name;
             link.click();
 
-            // Preserve original image while updating crop-related properties
             setImages((prev) =>
-              prev.map((img) =>
-                img.id === currentImage.id
-                  ? {
-                      ...img,
-                      cropped: true,
-                      cropSettings: newCropSettings,
-                      cropHistory: [
-                        ...img.cropHistory,
-                        {
-                          x: Math.round(data.x),
-                          y: Math.round(data.y),
-                          width: Math.round(data.width),
-                          height: Math.round(data.height)
-                        }
-                      ]
-                    }
-                  : img
-              )
+              prev.map((img) => (img.id === currentImage.id ? newImageState : img))
             );
 
             setGlobalCropSettings(newCropSettings);
 
             URL.revokeObjectURL(downloadUrl);
             removeUrlFromCleanup(downloadUrl);
-            onClose();
           }
         } catch (err) {
           console.error('Error or cancel occurred:', err);
-          // Save crop settings without updating history on error or cancel
           setGlobalCropSettings(newCropSettings);
           setImages((prev) =>
             prev.map((img) =>
               img.id === currentImage.id
                 ? {
                     ...img,
-                    cropSettings: newCropSettings
+                    cropSettings: newCropSettings,
+                    canvasData: canvasData
                   }
                 : img
             )
           );
-          onClose();
           return;
+        } finally {
+          onClose();
         }
       } finally {
         if (canvas) {
@@ -1241,17 +1206,15 @@ export const ImageCropperApp: React.FC = () => {
           aspectRatio
         };
 
+        const newImageState = {
+          ...currentImage,
+          cropSettings: newCropSettings,
+          canvasData: currentCanvasData
+        };
+
         if (isPerImageCrop) {
           setImages((prev) =>
-            prev.map((img) =>
-              img.id === currentImage.id
-                ? {
-                    ...img,
-                    cropSettings: newCropSettings,
-                    canvasData: currentCanvasData
-                  }
-                : img
-            )
+            prev.map((img) => (img.id === currentImage.id ? newImageState : img))
           );
         } else {
           setGlobalCropSettings(newCropSettings);
